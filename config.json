@@ -1,0 +1,16 @@
+{
+  "yara_rule_path": "rules.yar",
+  "ml_weight": 0.3,
+  "api_key_patterns": {
+    "aws_key": "AKIA[0-9A-Z]{16}",
+    "discord_token": "[MN][A-Za-z0-9]{23}\\.[A-Za-z0-9_-]{6}\\.[A-Za-z0-9_-]{27}",
+    "telegram_bot": "\\d{9,10}:[a-zA-Z0-9_-]{35}"
+  },
+  "logging_level": "DEBUG",
+  "report_sheet_names": [ "����� �����", "�����������" ],
+  "additional_checks": {
+    "hardcoded_passwords": "(?i)(password|pass|pwd)\\s*[=:]\\s*['\"][^'\"]+['\"]",
+    "sql_queries": "(?i)select\\s+.*from\\s+.*",
+    "filesystem_ops": "(open\\(|os\\.remove\\(|shutil\\.rmtree\\()"
+  }
+}
