@@ -7,104 +7,111 @@ from heuristics import perform_heuristics
 from github_utils import get_repository_files
 from plugin_runner import run_plugins
 
-def analyze_code(files, yara_rule_source=None):
+def analyze_code(files, yara_rule_source=None, check_types=None):
     """
-    Анализирует список файлов, используя базовые проверки (через AST/regex) 
-    и объединяя их с расширенными эвристиками.
+    Analyzes a list of files using specified checks (AST, regex, YARA, Bandit, heuristics).
+    check_types: List of enabled checks ["ast", "regex", "yara", "bandit", "heuristics"].
+    If None, all checks are performed.
     """
+    if check_types is None:
+        check_types = ["ast", "regex", "yara", "bandit", "heuristics"]
+
     yara_rules = None
-    if yara_rule_source:
+    if "yara" in check_types and yara_rule_source:
         try:
             yara_rules = yara.compile(source=yara_rule_source)
         except Exception as e:
             print(f"YARA compilation error: {e}")
-    
+
     results = {}
     for filename, code in files:
-        try:
-            tree = ast.parse(code)
-        except Exception as e:
-            print(f"AST parsing error in {filename}: {e}")
-            continue
-        
-        patterns = {}
+        patterns = {"_code": code}  # Store code for line number extraction
         
         # AST-based checks
-        patterns["eval_usage"] = any(isinstance(node, ast.Call) and getattr(node.func, 'id', None) == "eval" for node in ast.walk(tree))
-        patterns["exec_usage"] = any(isinstance(node, ast.Call) and getattr(node.func, 'id', None) == "exec" for node in ast.walk(tree))
-        patterns["subprocess_usage"] = any(
-            isinstance(node, ast.Call) and hasattr(node.func, 'attr') and node.func.attr in ["Popen", "call", "run"]
-            for node in ast.walk(tree)
-        )
-        patterns["os_system"] = any(
-            isinstance(node, ast.Call) and getattr(node.func, 'attr', None) == "system" 
-            and isinstance(node.func.value, ast.Name) and node.func.value.id == "os"
-            for node in ast.walk(tree)
-        )
-        patterns["pickle_loads"] = any(
-            isinstance(node, ast.Call) and getattr(node.func, 'attr', None) == "loads" 
-            and isinstance(node.func.value, ast.Name) and node.func.value.id == "pickle"
-            for node in ast.walk(tree)
-        )
-        patterns["subprocess_shell_true"] = any(
-            isinstance(node, ast.Call) and hasattr(node.func, 'attr') 
-            and node.func.attr in ["Popen", "call", "run"]
-            and any(
-                keyword.arg == "shell" 
-                and isinstance(keyword.value, ast.Constant) 
-                and keyword.value.value is True
-                for keyword in node.keywords
-            )
-            for node in ast.walk(tree)
-        )
-        patterns["insecure_serialization"] = any(
-            isinstance(node, ast.Call) and getattr(node.func, 'attr', None) in ["loads", "load"]
-            and isinstance(node.func.value, ast.Name) 
-            and node.func.value.id in ["pickle", "marshal", "shelve"]
-            for node in ast.walk(tree)
-        )
-        patterns["input_usage"] = any(
-            isinstance(node, ast.Call) and getattr(node.func, 'id', None) == "input"
-            for node in ast.walk(tree)
-        )
-        patterns["dynamic_import"] = any(
-            isinstance(node, ast.Call) and getattr(node.func, 'id', None) == "__import__"
-            for node in ast.walk(tree)
-        )
+        if "ast" in check_types:
+            try:
+                tree = ast.parse(code)
+                patterns["eval_usage"] = any(isinstance(node, ast.Call) and getattr(node.func, 'id', None) == "eval" for node in ast.walk(tree))
+                patterns["exec_usage"] = any(isinstance(node, ast.Call) and getattr(node.func, 'id', None) == "exec" for node in ast.walk(tree))
+                patterns["subprocess_usage"] = any(
+                    isinstance(node, ast.Call) and hasattr(node.func, 'attr') and node.func.attr in ["Popen", "call", "run"]
+                    for node in ast.walk(tree)
+                )
+                patterns["os_system"] = any(
+                    isinstance(node, ast.Call) and getattr(node.func, 'attr', None) == "system" 
+                    and isinstance(node.func.value, ast.Name) and node.func.value.id == "os"
+                    for node in ast.walk(tree)
+                )
+                patterns["pickle_loads"] = any(
+                    isinstance(node, ast.Call) and getattr(node.func, 'attr', None) == "loads" 
+                    and isinstance(node.func.value, ast.Name) and node.func.value.id == "pickle"
+                    for node in ast.walk(tree)
+                )
+                patterns["subprocess_shell_true"] = any(
+                    isinstance(node, ast.Call) and hasattr(node.func, 'attr') 
+                    and node.func.attr in ["Popen", "call", "run"]
+                    and any(
+                        keyword.arg == "shell" 
+                        and isinstance(keyword.value, ast.Constant) 
+                        and keyword.value.value is True
+                        for keyword in node.keywords
+                    )
+                    for node in ast.walk(tree)
+                )
+                patterns["insecure_serialization"] = any(
+                    isinstance(node, ast.Call) and getattr(node.func, 'attr', None) in ["loads", "load"]
+                    and isinstance(node.func.value, ast.Name) 
+                    and node.func.value.id in ["pickle", "marshal", "shelve"]
+                    for node in ast.walk(tree)
+                )
+                patterns["input_usage"] = any(
+                    isinstance(node, ast.Call) and getattr(node.func, 'id', None) == "input"
+                    for node in ast.walk(tree)
+                )
+                patterns["dynamic_import"] = any(
+                    isinstance(node, ast.Call) and getattr(node.func, 'id', None) == "__import__"
+                    for node in ast.walk(tree)
+                )
+            except Exception as e:
+                print(f"AST parsing error in {filename}: {e}")
 
         # Regex-based checks
-        patterns["ip_blocking"] = bool(re.search(r"if .*in.*blacklist", code))
-        patterns["spam_subscription"] = bool(re.search(r"subscribe.*mail", code, re.IGNORECASE))
-        patterns["dangerous_links"] = bool(re.search(r"http[s]?://.*(exe|bat|js|vbs|sh|dll)", code))
-        patterns["malicious_download"] = bool(re.search(r"requests\.get\s*\(.*\b(url|path)\b", code))
-        patterns["user_data_exfiltration"] = bool(re.search(r"open\s*\(.*\.(txt|csv|log)\)", code))
-        patterns["registry_access"] = bool(re.search(r"winreg", code))
-        patterns["base64_decode_eval"] = bool(re.search(r"base64\.b64decode\s*\([^)]*\)\s*.*eval\s*\(", code))
-        patterns["suspicious_dynamic_exec"] = bool(re.search(r"(compile|exec)\s*\(", code))
-        patterns["dangerous_imports"] = any(mod in code for mod in ["socket", "ctypes", "pickle", "marshal", "Crypto"])
-        patterns["obfuscated_code"] = len(re.findall(r'\\x[0-9A-Fa-f]{2}', code)) > 20
-        patterns["suspicious_file_ops"] = bool(re.search(r"open\s*\(.*[wa]\)", code))
-        patterns["dynamic_module_loading"] = bool(re.search(r"importlib\.import_module", code)) or "__import__" in code
-        patterns["suspicious_getattr"] = bool(re.search(r"getattr\s*\(.*['\"]", code))
-        patterns["hardcoded_credentials"] = bool(re.search(r"(password|secret|api_key)\s*=\s*['\"][^'\"]+['\"]", code, re.IGNORECASE))
-        patterns["insecure_protocol"] = bool(re.search(r"http://", code))
-        patterns["sql_injection"] = bool(re.search(r"execute\s*\(.*%.*\)", code))
-        patterns["reverse_shell"] = bool(re.search(r"socket\.(socket|create_connection)\s*\(", code)) and bool(re.search(r"connect\s*\(\s*\(.*\)\s*\)", code))
-        patterns["weak_encryption"] = bool(re.search(r"cryptography\.(md5|sha1)", code, re.IGNORECASE))
-        patterns["malicious_comments"] = bool(re.search(r"(backdoor|malware|exploit|keylogger|ransom)", code, re.IGNORECASE))
-        patterns["hidden_process"] = bool(re.search(r"CREATE_NO_WINDOW|SW_HIDE", code))
-        patterns["camera_access"] = bool(re.search(r"cv2\.VideoCapture|pygame\.camera", code))
-        patterns["microphone_access"] = bool(re.search(r"sounddevice\.rec|pyaudio\.PyAudio", code))
-        patterns["dropper_code"] = bool(re.search(r"requests\.get\(.*\)\.content.*exec\(|urllib\.request\.urlopen\(.*\)\.read\(\)", code))
-        patterns["code_injection"] = bool(re.search(r"ctypes\.windll|WriteProcessMemory", code))
-        patterns["file_permission_changes"] = bool(re.search(r"os\.chmod|os\.chown", code))
-        patterns["in_memory_execution"] = bool(re.search(r"exec\(compile\(|eval\(compile\(|exec\(.*decode\(['\"]base64", code))
-        patterns["env_variable_usage"] = bool(re.search(r"os\.getenv|os\.environ\.get", code)) and not bool(re.search(r"default=os\.getenv\(", code))
-        
-        bandit_vulns = detect_bandit_vulnerabilities(code)
-        patterns.update(bandit_vulns)
-        # YARA rules check
-        if yara_rules:
+        if "regex" in check_types:
+            patterns["ip_blocking"] = bool(re.search(r"if .*in.*blacklist", code))
+            patterns["spam_subscription"] = bool(re.search(r"subscribe.*mail", code, re.IGNORECASE))
+            patterns["dangerous_links"] = bool(re.search(r"http[s]?://.*(exe|bat|js|vbs|sh|dll)", code))
+            patterns["malicious_download"] = bool(re.search(r"requests\.get\s*\(.*\b(url|path)\b", code))
+            patterns["user_data_exfiltration"] = bool(re.search(r"open\s*\(.*\.(txt|csv|log)\)", code))
+            patterns["registry_access"] = bool(re.search(r"winreg", code))
+            patterns["base64_decode_eval"] = bool(re.search(r"base64\.b64decode\s*\([^)]*\)\s*.*eval\s*\(", code))
+            patterns["suspicious_dynamic_exec"] = bool(re.search(r"(compile|exec)\s*\(", code))
+            patterns["dangerous_imports"] = any(mod in code for mod in ["socket", "ctypes", "pickle", "marshal", "Crypto"])
+            patterns["obfuscated_code"] = len(re.findall(r'\\x[0-9A-Fa-f]{2}', code)) > 20
+            patterns["suspicious_file_ops"] = bool(re.search(r"open\s*\(.*[wa]\)", code))
+            patterns["dynamic_module_loading"] = bool(re.search(r"importlib\.import_module", code)) or "__import__" in code
+            patterns["suspicious_getattr"] = bool(re.search(r"getattr\s*\(.*['\"]", code))
+            patterns["hardcoded_credentials"] = bool(re.search(r"(password|secret|api_key)\s*=\s*['\"][^'\"]+['\"]", code, re.IGNORECASE))
+            patterns["insecure_protocol"] = bool(re.search(r"http://", code))
+            patterns["sql_injection"] = bool(re.search(r"execute\s*\(.*%.*\)", code))
+            patterns["reverse_shell"] = bool(re.search(r"socket\.(socket|create_connection)\s*\(", code)) and bool(re.search(r"connect\s*\(\s*\(.*\)\s*\)", code))
+            patterns["weak_encryption"] = bool(re.search(r"cryptography\.(md5|sha1)", code, re.IGNORECASE))
+            patterns["malicious_comments"] = bool(re.search(r"(backdoor|malware|exploit|keylogger|ransom)", code, re.IGNORECASE))
+            patterns["hidden_process"] = bool(re.search(r"CREATE_NO_WINDOW|SW_HIDE", code))
+            patterns["camera_access"] = bool(re.search(r"cv2\.VideoCapture|pygame\.camera", code))
+            patterns["microphone_access"] = bool(re.search(r"sounddevice\.rec|pyaudio\.PyAudio", code))
+            patterns["dropper_code"] = bool(re.search(r"requests\.get\(.*\)\.content.*exec\(|urllib\.request\.urlopen\(.*\)\.read\(\)", code))
+            patterns["code_injection"] = bool(re.search(r"ctypes\.windll|WriteProcessMemory", code))
+            patterns["file_permission_changes"] = bool(re.search(r"os\.chmod|os\.chown", code))
+            patterns["in_memory_execution"] = bool(re.search(r"exec\(compile\(|eval\(compile\(|exec\(.*decode\(['\"]base64", code))
+            patterns["env_variable_usage"] = bool(re.search(r"os\.getenv|os\.environ\.get", code)) and not bool(re.search(r"default=os\.getenv\(", code))
+
+        # Bandit checks
+        if "bandit" in check_types:
+            bandit_vulns = detect_bandit_vulnerabilities(code)
+            patterns.update(bandit_vulns)
+
+        # YARA checks
+        if "yara" in check_types and yara_rules:
             try:
                 patterns["yara_match"] = bool(yara_rules.match(data=code))
             except Exception as e:
@@ -112,16 +119,17 @@ def analyze_code(files, yara_rule_source=None):
                 patterns["yara_match"] = False
         else:
             patterns["yara_match"] = False
-        
-        # Расширенные эвристики и плагины
-        extra_patterns = perform_heuristics(filename, code, run_plugins)
-        patterns.update(extra_patterns)
-        
+
+        # Heuristics checks
+        if "heuristics" in check_types:
+            extra_patterns = perform_heuristics(filename, code, run_plugins)
+            patterns.update(extra_patterns)
+
         results[filename] = patterns
     return results
 
 def detect_bandit_vulnerabilities(code):
-    """Реализация всех проверок Bandit через AST и regex"""
+    """Implementation of Bandit checks via AST and regex"""
     vulns = {}
     
     try:
@@ -318,7 +326,7 @@ def detect_bandit_vulnerabilities(code):
     # B604: any_other_function_with_shell_equals_true
     vulns['other_shell_true'] = bool(re.search(
         r'\b(shell|executable)\s*=\s*True', code
-    )) and not vulns['subprocess_shell_true']
+    )) and not vulns.get('subprocess_shell_true', False)
 
     # B605: start_process_with_partial_path
     vulns['partial_path_process'] = bool(re.search(
@@ -327,8 +335,8 @@ def detect_bandit_vulnerabilities(code):
 
     # B606: assert_used
     vulns['assert_used'] = vulns.get('assert_used', False) or bool(
-        re.search(r'\bassert\b', code)
-    )
+        re.search(r'\bassert\b', code
+    ))
 
     # B607: start_process_with_a_shell
     vulns['shell_process'] = bool(re.search(
@@ -370,7 +378,7 @@ def detect_bandit_vulnerabilities(code):
 
 def score_maliciousness(results):
     """
-    Улучшенная система оценки с полным учетом всех паттернов
+    Enhanced scoring system considering all patterns
     """
     scoring_rules = {
         # Bandit rules
@@ -411,7 +419,7 @@ def score_maliciousness(results):
         'logging_insecure': 60,
         'jinja2_autoescape_off': 70,
         
-        # Критические риски (60-100)
+        # Critical risks (60-100)
         "yara_match": 100,
         "reverse_shell": 95,
         "code_injection": 90,
@@ -419,14 +427,14 @@ def score_maliciousness(results):
         "in_memory_execution": 80,
         "malicious_download": 75,
 
-        # Высокие риски (40-59)
+        # High risks (40-59)
         "hardcoded_credentials": 55,
         "sql_injection": 50,
         "subprocess_shell_true": 45,
         "registry_access": 40,
         "dynamic_module_loading": 40,
 
-        # Средние риски (20-39)
+        # Medium risks (20-39)
         "eval_usage": 35,
         "exec_usage": 35,
         "os_system": 30,
@@ -434,26 +442,35 @@ def score_maliciousness(results):
         "pickle_loads": 20,
         "insecure_serialization": 20,
 
-        # Низкие риски (1-19)
+        # Low risks (1-19)
         "obfuscated_code": 15,
         "suspicious_file_ops": 12,
         "input_usage": 10,
         "weak_encryption": 8,
         "malicious_comments": 5,
 
-        # Динамические правила
+        # Heuristic checks
+        "ml_suspicion": lambda x: int(x * 0.3),
+        "api_keys": lambda x: 55 if any(v["found"] for v in x.values()) else 0,
+        "encryption": lambda x: 30 if any(v["found"] for v in x.values()) else 0,
+        "network": lambda x: 40 if any(v["found"] for v in x.values()) else 0,
+        "hardware": lambda x: 30 if any(v["found"] for v in x.values()) else 0,
+        "shell_injection": lambda x: 45 if x.get("shell_injection", {}).get("found") else 0,
+        "sql_injection": lambda x: 50 if x.get("sql_injection", {}).get("found") else 0,
+
+        # Dynamic rules
         "plugin_": lambda x: min(x * 2, 25),
-        "ml_suspicion": lambda x: int(x * 0.3)
     }
 
     scores = {}
     for filename, patterns in results.items():
         score = 0
         
-        # Основные паттерны
+        # Main patterns
         for pattern, value in patterns.items():
+            if pattern in ["_code", "detailed_lines"]:
+                continue  # Skip non-scored patterns
             if isinstance(value, bool) and value:
-                # Поиск подходящего правила
                 for rule in scoring_rules:
                     if pattern.startswith(rule):
                         weight = scoring_rules[rule]
@@ -462,32 +479,35 @@ def score_maliciousness(results):
                         else:
                             score += weight
                         break
+            elif isinstance(value, dict):
+                for rule in scoring_rules:
+                    if pattern == rule:
+                        weight = scoring_rules[rule]
+                        if callable(weight):
+                            score += weight(value)
+                        break
+            elif pattern == "ml_suspicion" and isinstance(value, (int, float)):
+                score += scoring_rules["ml_suspicion"](value)
 
-        # Обработка специальных случаев
+        # Special cases
         if patterns.get("camera_access") or patterns.get("microphone_access"):
             score += 30
-
         if patterns.get("dynamic_import") and patterns.get("suspicious_getattr"):
             score += 25
 
-        # ML-корректировка
-        if "ml_suspicion" in patterns:
-            score += scoring_rules["ml_suspicion"](patterns["ml_suspicion"])
-
-        # Нормализация результата
         scores[filename] = max(0, min(score, 100))
 
     return scores
 
-def perform_scan(repo_url, token, yara_rule_source):
+def perform_scan(repo_url, token, yara_rule_source, check_types=None):
     """
-    Обновленная функция сканирования без интеграции с Bandit
+    Updated scan function with selective check types
     """
     files = get_repository_files(repo_url, token)
     if not files:
         raise ValueError("No Python files found in repository.")
     
-    results = analyze_code(files, yara_rule_source)
+    results = analyze_code(files, yara_rule_source, check_types)
     scores = score_maliciousness(results)
     
     return results, scores, files
