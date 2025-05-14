@@ -376,7 +376,6 @@ class CodeScannerGUI(QMainWindow):
         self.findings_chart_image.clear()
         self.graph_image.clear()
         self.scan_button.setEnabled(False)
-        self.deepseek_button.setEnabled(False)
         self.io_net_button.setEnabled(False)
 
         self.worker = ScanWorker(repo_url, token, yara_source, selected_checks)
@@ -601,7 +600,6 @@ class CodeScannerGUI(QMainWindow):
 
             self.logger.info("Scan completed successfully")
             QMessageBox.information(self, "Success", "Скан завершён успешно!")
-            self.deepseek_button.setEnabled(True)
             self.io_net_button.setEnabled(True)
         except Exception as e:
             self.logger.error(f"Post-scan processing failed: {str(e)}")
@@ -615,7 +613,6 @@ class CodeScannerGUI(QMainWindow):
         QMessageBox.critical(self, "Error", f"Скан не выполнен: {error_msg}")
         self.scan_button.setEnabled(True)
         self.progress_bar.setValue(0)
-        self.deepseek_button.setEnabled(False)
         self.io_net_button.setEnabled(False)
 
     def populate_last_scan(self):
