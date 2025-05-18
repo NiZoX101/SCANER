@@ -22,6 +22,8 @@
   </PropertyGroup>
   <ItemGroup>
     <Content Include="config.json" />
+    <Content Include="heuristics.json" />
+    <Content Include="patterns.json" />
     <Content Include="rules.yar" />
   </ItemGroup>
   <ItemGroup>

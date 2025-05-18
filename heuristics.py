@@ -1,127 +1,198 @@
 ﻿import re
+import math
+from typing import List, Dict, Any
 
-def ml_analyze(code):
-    """
-    Простейшая эвристика для оценки подозрительности кода.
-    Возвращает число от 0 до 100.
-    """
-    suspicious_terms = ["eval(", "exec(", "__import__", "compile(", "pickle.loads", "base64.b64decode"]
-    count = sum(code.count(term) for term in suspicious_terms)
-    hex_matches = re.findall(r'\\x[0-9A-Fa-f]{2}', code)
-    obf_score = len(hex_matches)
-    score = (count * 10 + obf_score) / (len(code) / 1000 + 1)
-    return int(min(score, 100))
+class HeuristicAnalyzer:
+    def __init__(self):
+        self.combinations = [
+            {
+                'keys': ['eval_usage', 'hardcoded_credentials'],
+                'description': 'Комбинация eval() и захардкоденных учетных данных',
+                'advice': 'Избегайте eval, используйте безопасное хранение учетных данных',
+                'severity': 'Critical',
+                'confidence': 0.98,
+                'score': 25
+            },
+            {
+                'keys': ['shell_injection', 'dynamic_code_execution'],
+                'description': 'Инъекция команд с динамическим выполнением кода',
+                'advice': 'Используйте безопасные методы выполнения команд',
+                'severity': 'Critical',
+                'confidence': 0.95,
+                'score': 30
+            },
+            {
+                'keys': ['hardcoded_credentials', 'shell_injection'],
+                'description': 'Учетные данные и инъекция команд',
+                'advice': 'Храните учетные данные безопасно, избегайте shell-команд',
+                'severity': 'Critical',
+                'confidence': 0.97,
+                'score': 28
+            },
+            {
+                'keys': ['eval_usage', 'shell_injection'],
+                'description': 'Eval() с инъекцией команд',
+                'advice': 'Избегайте eval и shell-команд',
+                'severity': 'Critical',
+                'confidence': 0.96,
+                'score': 27
+            },
+            {
+                'keys': ['hardcoded_credentials', 'network'],
+                'description': 'Учетные данные и сетевые операции',
+                'advice': 'Храните учетные данные безопасно, проверьте сетевые вызовы',
+                'severity': 'High',
+                'confidence': 0.94,
+                'score': 22
+            },
+            {
+                'keys': ['dynamic_code_execution', 'network'],
+                'description': 'Динамическое выполнение и сетевые операции',
+                'advice': 'Ограничьте динамическое выполнение, проверьте сетевые вызовы',
+                'severity': 'High',
+                'confidence': 0.93,
+                'score': 20
+            },
+            {
+                'keys': ['shell_injection', 'network'],
+                'description': 'Инъекция команд и сетевые операции',
+                'advice': 'Используйте безопасные команды, проверьте сетевые вызовы',
+                'severity': 'High',
+                'confidence': 0.92,
+                'score': 21
+            },
+            {
+                'keys': ['eval_usage', 'insecure_serialization'],
+                'description': 'Eval() с небезопасной сериализацией',
+                'advice': 'Избегайте eval и небезопасных модулей (pickle, marshal)',
+                'severity': 'Critical',
+                'confidence': 0.95,
+                'score': 26
+            },
+            {
+                'keys': ['hardcoded_credentials', 'insecure_serialization'],
+                'description': 'Учетные данные и небезопасная сериализация',
+                'advice': 'Храните учетные данные безопасно, избегайте pickle/marshal',
+                'severity': 'High',
+                'confidence': 0.93,
+                'score': 23
+            },
+            {
+                'keys': ['dynamic_code_execution', 'yara_match'],
+                'description': 'Динамическое выполнение и YARA-совпадение',
+                'advice': 'Ограничьте динамическое выполнение, проверьте YARA-сигнатуры',
+                'severity': 'Critical',
+                'confidence': 0.97,
+                'score': 29
+            },
+            {
+                'keys': ['shell_injection', 'yara_match'],
+                'description': 'Инъекция команд и YARA-совпадение',
+                'advice': 'Используйте безопасные команды, проверьте YARA-сигнатуры',
+                'severity': 'Critical',
+                'confidence': 0.96,
+                'score': 28
+            },
+            {
+                'keys': ['hardcoded_credentials', 'yara_match'],
+                'description': 'Учетные данные и YARA-совпадение',
+                'advice': 'Храните учетные данные безопасно, проверьте YARA-сигнатуры',
+                'severity': 'High',
+                'confidence': 0.94,
+                'score': 24
+            },
+            {
+                'keys': ['eval_usage', 'network', 'yara_match'],
+                'description': 'Eval(), сетевые операции и YARA-совпадение',
+                'advice': 'Избегайте eval, проверьте сетевые вызовы и YARA-сигнатуры',
+                'severity': 'Critical',
+                'confidence': 0.99,
+                'score': 32
+            },
+            {
+                'keys': ['shell_injection', 'network', 'yara_match'],
+                'description': 'Инъекция команд, сетевые операции и YARA-совпадение',
+                'advice': 'Используйте безопасные команды, проверьте сетевые вызовы и YARA',
+                'severity': 'Critical',
+                'confidence': 0.98,
+                'score': 31
+            },
+            {
+                'keys': ['dynamic_code_execution', 'insecure_serialization', 'network'],
+                'description': 'Динамическое выполнение, небезопасная сериализация и сеть',
+                'advice': 'Ограничьте динамическое выполнение, избегайте pickle, проверьте сеть',
+                'severity': 'Critical',
+                'confidence': 0.97,
+                'score': 30
+            }
+        ]
 
-def detailed_extract_suspicious_lines(code):
-    """
-    Извлекает строки с подозрительными конструкциями.
-    Возвращает список строк с номером, описанием и рекомендациями.
-    """
-    patterns = [
-        {"pattern": r"eval\(", "description": "Динамическое выполнение кода", "advice": "Избегайте использования eval; применяйте безопасные альтернативы."},
-        {"pattern": r"exec\(", "description": "Динамическое выполнение кода", "advice": "Избегайте использования exec или ограничьте область применения."},
-        {"pattern": r"__import__", "description": "Динамическая загрузка модулей", "advice": "Проверяйте источники модулей и избегайте лишнего динамического импорта."},
-        {"pattern": r"compile\(", "description": "Компиляция кода во время выполнения", "advice": "Проверьте исходный код перед компиляцией."},
-        {"pattern": r"pickle\.loads", "description": "Десериализация без проверки", "advice": "Используйте безопасные форматы, например, JSON."},
-        {"pattern": r"base64\.b64decode", "description": "Декодирование Base64, возможная обфускация", "advice": "Проверьте контекст декодирования."},
-        {"pattern": r"socket\.socket\(", "description": "Создание сетевого сокета", "advice": "Проверьте методы подключения и валидацию данных."},
-        {"pattern": r"os\.system\(", "description": "Вызов системных команд", "advice": "Используйте subprocess с валидированными аргументами."},
-        {"pattern": r"subprocess\.", "description": "Запуск внешних процессов", "advice": "Валидация входных данных обязательна."},
-        {"pattern": r"importlib\.import_module", "description": "Динамический импорт модулей", "advice": "Убедитесь, что импортируемый модуль безопасен."},
-        {"pattern": r"winreg", "description": "Доступ к реестру Windows", "advice": "Проверьте необходимость доступа и безопасность операций."},
-        {"pattern": r"(AES\.new|Fernet\()", "description": "Использование криптографии", "advice": "Убедитесь в корректной настройке ключей и режимов."},
-        {"pattern": r"\b(password|secret|key)\b", "description": "Хардкоденные пароли/секреты", "advice": "Храните данные в переменных окружения или безопасном хранилище."}
-    ]
-    detailed_lines = []
-    for idx, line in enumerate(code.splitlines(), 1):
-        for entry in patterns:
-            if re.search(entry["pattern"], line):
-                detailed_lines.append(
-                    f"Line {idx}: {line.strip()} [Причина: {entry['description']}] [Совет: {entry['advice']}]"
-                )
-    return detailed_lines
+    def analyze(self, code: str, patterns: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        results = []
+        found_keys = {p['key'] for p in patterns if p.get('key')}
 
-def check_api_keys(code):
-    """
-    Проверяет код на наличие API-ключей.
-    Возвращает подробный словарь с результатами.
-    """
-    patterns = {
-        "aws_key": {"pattern": r"AKIA[0-9A-Z]{16}", "description": "AWS ключ", "advice": "Используйте переменные окружения."},
-        "discord_token": {"pattern": r"[MN][A-Za-z0-9]{23}\.[A-Za-z0-9_-]{6}\.[A-Za-z0-9_-]{27}", "description": "Discord токен", "advice": "Храните в защищённом хранилище."},
-        "telegram_bot": {"pattern": r"\d{9,10}:[a-zA-Z0-9_-]{35}", "description": "Telegram-бот токен", "advice": "Храните вне исходного кода."}
-    }
-    findings = {}
-    for key, info in patterns.items():
-        match = re.search(info["pattern"], code)
-        if match:
-            findings[key] = {"found": True, "description": info["description"], "advice": info["advice"], "match": match.group(0)}
-        else:
-            findings[key] = {"found": False}
-    return findings
+        for combo in self.combinations:
+            if all(key in found_keys for key in combo['keys']):
+                results.append({
+                    'key': '_'.join(combo['keys']),
+                    'description': combo['description'],
+                    'advice': combo['advice'],
+                    'severity': combo['severity'],
+                    'confidence': combo['confidence'],
+                    'score': float(combo['score'])  # Явное приведение к float
+                })
 
-def check_encryption_usage(code):
-    """
-    Детектирует использование криптографии (AES, Fernet, XOR).
-    """
-    findings = {
-        "aes_usage": {"found": bool(re.search(r"AES\.new\(", code)), "description": "AES шифрование", "advice": "Проверьте корректность ключей."},
-        "fernet_usage": {"found": bool(re.search(r"Fernet\(", code)), "description": "Fernet шифрование", "advice": "Проверьте настройки токена."},
-        "xor_usage": {"found": bool(re.search(r"\bXOR\b", code, re.IGNORECASE)), "description": "Возможная XOR обфускация", "advice": "Пересмотрите алгоритм обфускации."}
-    }
-    return findings
+        for pattern in patterns:
+            results.append({
+                'key': pattern['key'],
+                'description': pattern['description'],
+                'advice': pattern['advice'],
+                'severity': pattern.get('severity', 'Medium'),
+                'confidence': pattern.get('confidence', 0.9),
+                'score': float(pattern.get('score', 10.0))  # Явное приведение к float
+            })
 
-def check_socket_and_server(code):
-    """
-    Проверяет создание сетевых сокетов и серверов.
-    """
-    findings = {
-        "socket_creation": {"found": bool(re.search(r"socket\.socket\(", code)), "description": "Создание сокета", "advice": "Проверьте безопасность соединения."},
-        "server_creation": {"found": bool(re.search(r"(bind|listen)\s*\(", code)), "description": "Прослушивание порта", "advice": "Убедитесь в защите серверных процессов."}
-    }
-    return findings
+        return results
 
-def check_hardware_access(code):
-    """
-    Проверяет доступ к камере, микрофону, GPS и файловым операциям.
-    """
-    findings = {
-        "camera_access": {"found": bool(re.search(r"(cv2\.VideoCapture|picamera\.PiCamera)", code)), "description": "Доступ к камере", "advice": "Проверьте необходимость и защиту доступа."},
-        "microphone_access": {"found": bool(re.search(r"(pyaudio\.PyAudio)", code)), "description": "Доступ к микрофону", "advice": "Проверьте, что запись звука разрешена."},
-        "gps_access": {"found": bool(re.search(r"(gps\.gps|geopy\.Nominatim)", code)), "description": "Доступ к GPS/геолокации", "advice": "Обеспечьте защиту геоданных."},
-        "filesystem_ops": {"found": bool(re.search(r"(open\(|os\.remove\(|shutil\.rmtree\()", code)), "description": "Операции с файловой системой", "advice": "Проверьте безопасность работы с файлами."}
-    }
-    return findings
+def detailed_extract_suspicious_lines(code: str) -> List[str]:
+    suspicious_lines = []
+    for i, line in enumerate(code.splitlines(), 1):
+        line = line.strip()
+        if not line:
+            continue
 
-def check_shell_injection(code):
-    """
-    Дополнительная проверка: использование subprocess с shell=True.
-    """
-    found = bool(re.search(r"subprocess\.run\([^)]*shell\s*=\s*True", code))
-    return {"shell_injection": {"found": found, "description": "Использование shell=True", "advice": "Избегайте shell=True или валидируйте аргументы."}}
+        if len(line) > 200:
+            suspicious_lines.append(f"Line {i}: {line} [Type: Heuristics] [Reason: Long line, possible obfuscation] [Advice: Review content]")
+        if re.search(r'[A-Za-z0-9+/=]{20,}', line):
+            suspicious_lines.append(f"Line {i}: {line} [Type: Heuristics] [Reason: Possible base64 string] [Advice: Decode and verify]")
+        if re.search(r'(password|passwd|pwd|secret|token|key)\s*=\s*[\'\"][^\'\"]+[\'\"]', line, re.IGNORECASE):
+            suspicious_lines.append(f"Line {i}: {line} [Type: Heuristics] [Reason: Possible credentials] [Advice: Use secure storage]")
+        if re.search(r'(eval|exec|system|subprocess|os\.system|__import__)\s*\(', line, re.IGNORECASE):
+            suspicious_lines.append(f"Line {i}: {line} [Type: Heuristics] [Reason: Suspicious function call] [Advice: Verify call safety]")
+        if re.search(r'(http|https|ftp)://[\w\-\.]+|(\d{1,3}\.){3}\d{1,3}', line, re.IGNORECASE):
+            suspicious_lines.append(f"Line {i}: {line} [Type: Heuristics] [Reason: Suspicious URL or IP] [Advice: Verify destination]")
+        if re.search(r'\\x[0-9a-fA-F]{2}', line):
+            suspicious_lines.append(f"Line {i}: {line} [Type: Heuristics] [Reason: Hex encoding] [Advice: Check decoded content]")
+        if re.search(r'(pickle\.loads|marshal\.loads|shelve\.open)\s*\(', line, re.IGNORECASE):
+            suspicious_lines.append(f"Line {i}: {line} [Type: Heuristics] [Reason: Insecure serialization] [Advice: Avoid pickle/marshal]")
+        if re.search(r'(socket\.|http\.|urllib\.|requests\.)\w+\s*\(', line, re.IGNORECASE):
+            suspicious_lines.append(f"Line {i}: {line} [Type: Heuristics] [Reason: Suspicious network operation] [Advice: Verify destination]")
+        if re.search(r'(camera|microphone|gps|location)\w*\s*(=|\()', line, re.IGNORECASE):
+            suspicious_lines.append(f"Line {i}: {line} [Type: Heuristics] [Reason: Hardware resource access] [Advice: Verify legitimacy]")
+        if len(line) > 20 and calculate_entropy(line) > 4.5:
+            suspicious_lines.append(f"Line {i}: {line} [Type: Heuristics] [Reason: High entropy, possible encryption] [Advice: Review content]")
 
-def check_sql_injection(code):
-    """
-    Проверяет наличие незащищённых SQL-запросов.
-    """
-    found = bool(re.search(r"(?i)select\s+.*from\s+.*", code))
-    return {"sql_injection": {"found": found, "description": "SQL-запросы без параметризации", "advice": "Используйте параметризованные запросы."}}
+    return suspicious_lines
 
-def perform_heuristics(filename, code, plugin_runner):
-    """
-    Объединяет все проверки: базовые, дополнительные (shell, SQL) и плагины.
-    """
-    results = {}
-    results["ml_suspicion"] = ml_analyze(code)
-    results["detailed_lines"] = detailed_extract_suspicious_lines(code)
-    results["api_keys"] = check_api_keys(code)
-    results["encryption"] = check_encryption_usage(code)
-    results["network"] = check_socket_and_server(code)
-    results["hardware"] = check_hardware_access(code)
-    # Дополнительные проверки
-    results.update(check_shell_injection(code))
-    results.update(check_sql_injection(code))
-    # Выполнение плагинов
-    plugin_results = plugin_runner(filename, code)
-    results.update(plugin_results)
-    return results
+def calculate_entropy(text: str) -> float:
+    if not text:
+        return 0.0
+    length = len(text)
+    counts = {}
+    for char in text:
+        counts[char] = counts.get(char, 0) + 1
+    entropy = 0.0
+    for count in counts.values():
+        probability = count / length
+        entropy -= probability * math.log2(probability)
+    return entropy

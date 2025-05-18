@@ -1,0 +1,1199 @@
+﻿[
+  {
+    "key": "eval_usage",
+    "pattern": "eval\\(",
+    "description": "Динамическое выполнение кода через eval()",
+    "advice": "Избегайте eval; используйте безопасные альтернативы, например, ast.literal_eval.",
+    "severity": "Critical",
+    "confidence": 0.95,
+    "score": 15
+  },
+  {
+    "key": "exec_usage",
+    "pattern": "exec\\(",
+    "description": "Динамическое выполнение кода через exec()",
+    "advice": "Избегайте exec; ограничьте выполнение динамического кода.",
+    "severity": "Critical",
+    "confidence": 0.95,
+    "score": 15
+  },
+  {
+    "key": "subprocess_usage",
+    "pattern": "subprocess\\.",
+    "description": "Выполнение внешних процессов через subprocess",
+    "advice": "Проверяйте все входные данные для вызовов subprocess.",
+    "severity": "High",
+    "confidence": 0.85,
+    "score": 10
+  },
+  {
+    "key": "os_system",
+    "pattern": "os\\.system\\(",
+    "description": "Вызов системных команд через os.system",
+    "advice": "Используйте subprocess с проверенными аргументами вместо os.system.",
+    "severity": "High",
+    "confidence": 0.90,
+    "score": 10
+  },
+  {
+    "key": "pickle_loads",
+    "pattern": "pickle\\.loads\\(",
+    "description": "Небезопасная десериализация через pickle.loads",
+    "advice": "Используйте безопасные форматы, например, JSON.",
+    "severity": "High",
+    "confidence": 0.90,
+    "score": 10
+  },
+  {
+    "key": "subprocess_shell_true",
+    "pattern": "subprocess\\.(Popen|run|call)\\(.*shell\\s*=\\s*True",
+    "description": "Subprocess с shell=True",
+    "advice": "Избегайте shell=True; используйте shell=False с проверенными аргументами.",
+    "severity": "Critical",
+    "confidence": 0.95,
+    "score": 15
+  },
+  {
+    "key": "insecure_serialization",
+    "pattern": "(pickle|marshal|shelve)\\.(loads|load)\\(",
+    "description": "Небезопасная сериализация (pickle, marshal, shelve)",
+    "advice": "Используйте JSON или другие безопасные форматы.",
+    "severity": "High",
+    "confidence": 0.90,
+    "score": 10
+  },
+  {
+    "key": "input_usage",
+    "pattern": "input\\(",
+    "description": "Использование input()",
+    "advice": "Проверяйте пользовательский ввод для предотвращения инъекций.",
+    "severity": "Medium",
+    "confidence": 0.80,
+    "score": 5
+  },
+  {
+    "key": "dynamic_import",
+    "pattern": "__import__",
+    "description": "Динамическая загрузка модулей через __import__",
+    "advice": "Проверяйте источники модулей перед импортом.",
+    "severity": "Medium",
+    "confidence": 0.85,
+    "score": 5
+  },
+  {
+    "key": "ldap_injection",
+    "pattern": "ldap\\.search\\(",
+    "description": "Потенциальная LDAP-инъекция",
+    "advice": "Используйте параметризованные LDAP-запросы.",
+    "severity": "High",
+    "confidence": 0.85,
+    "score": 10
+  },
+  {
+    "key": "xpath_injection",
+    "pattern": "lxml\\.etree\\.XPath\\(",
+    "description": "Потенциальная XPath-инъекция",
+    "advice": "Санитизируйте ввод для XPath-запросов.",
+    "severity": "High",
+    "confidence": 0.85,
+    "score": 10
+  },
+  {
+    "key": "os_popen",
+    "pattern": "os\\.popen\\(",
+    "description": "Вызов os.popen",
+    "advice": "Используйте subprocess с проверенными аргументами вместо os.popen.",
+    "severity": "High",
+    "confidence": 0.90,
+    "score": 10
+  },
+  {
+    "key": "yaml_load",
+    "pattern": "yaml\\.load\\(",
+    "description": "Использование yaml.load",
+    "advice": "Используйте yaml.safe_load для предотвращения выполнения произвольного кода.",
+    "severity": "High",
+    "confidence": 0.90,
+    "score": 10
+  },
+  {
+    "key": "xml_xxe",
+    "pattern": "xml\\.sax\\.expatreader\\.create_parser\\(",
+    "description": "Потенциальная уязвимость XXE",
+    "advice": "Отключите внешние сущности при парсинге XML.",
+    "severity": "High",
+    "confidence": 0.90,
+    "score": 10
+  },
+  {
+    "key": "execv_usage",
+    "pattern": "os\\.(execv|execve)\\(",
+    "description": "Использование os.execv или os.execve",
+    "advice": "Проверяйте аргументы перед выполнением команд.",
+    "severity": "High",
+    "confidence": 0.90,
+    "score": 10
+  },
+  {
+    "key": "django_session_serialization",
+    "pattern": "SESSION_SERIALIZER\\s*=\\s*['\"]django\\.contrib\\.sessions\\.serializers\\.PickleSerializer['\"]",
+    "description": "Использование Pickle для сериализации сессий в Django",
+    "advice": "Используйте JSONSerializer вместо PickleSerializer.",
+    "severity": "High",
+    "confidence": 0.90,
+    "score": 10
+  },
+  {
+    "key": "flask_session_cookie",
+    "pattern": "app\\.config\\['SESSION_COOKIE_SECURE'\\]\\s*=\\s*False",
+    "description": "Отключение SESSION_COOKIE_SECURE в Flask",
+    "advice": "Установите SESSION_COOKIE_SECURE=True для HTTPS.",
+    "severity": "High",
+    "confidence": 0.85,
+    "score": 10
+  },
+  {
+    "key": "redis_insecure",
+    "pattern": "redis\\.StrictRedis\\(.*decode_responses\\s*=\\s*False",
+    "description": "Небезопасное использование redis-py",
+    "advice": "Используйте decode_responses=True для корректной обработки строк.",
+    "severity": "Medium",
+    "confidence": 0.80,
+    "score": 5
+  },
+  {
+    "key": "ip_blocking",
+    "pattern": "if .*in.*blacklist",
+    "description": "Паттерн блокировки IP",
+    "advice": "Проверьте логику черного списка на предмет возможного злоупотребления.",
+    "severity": "Low",
+    "confidence": 0.70,
+    "score": 2
+  },
+  {
+    "key": "spam_subscription",
+    "pattern": "subscribe.*mail",
+    "description": "Паттерн подписки на спам",
+    "advice": "Проверьте логику подписки по email.",
+    "severity": "Low",
+    "confidence": 0.65,
+    "score": 2
+  },
+  {
+    "key": "dangerous_links",
+    "pattern": "http[s]?://.*(exe|bat|js|vbs|sh|dll)",
+    "description": "Ссылки на опасные файлы",
+    "advice": "Избегайте ссылок на исполняемые файлы.",
+    "severity": "Medium",
+    "confidence": 0.80,
+    "score": 5
+  },
+  {
+    "key": "malicious_download",
+    "pattern": "requests\\.get\\s*\\(.*\\b(url|path)\\b",
+    "description": "Подозрительная загрузка",
+    "advice": "Проверяйте источники загрузки.",
+    "severity": "High",
+    "confidence": 0.85,
+    "score": 10
+  },
+  {
+    "key": "user_data_exfiltration",
+    "pattern": "open\\s*\\(.*\\.(txt|csv|log)\\)",
+    "description": "Попытка эксфильтрации данных",
+    "advice": "Защищайте операции с файлами.",
+    "severity": "High",
+    "confidence": 0.85,
+    "score": 10
+  },
+  {
+    "key": "registry_access",
+    "pattern": "winreg",
+    "description": "Доступ к реестру Windows",
+    "advice": "Проверьте необходимость операций с реестром.",
+    "severity": "Medium",
+    "confidence": 0.80,
+    "score": 5
+  },
+  {
+    "key": "base64_decode_eval",
+    "pattern": "base64\\.b64decode\\s*\\([^)]*\\)\\s*.*eval\\s*\\(",
+    "description": "Декодирование Base64 с последующим eval",
+    "advice": "Избегайте декодирования и выполнения динамического кода.",
+    "severity": "Critical",
+    "confidence": 0.95,
+    "score": 15
+  },
+  {
+    "key": "suspicious_dynamic_exec",
+    "pattern": "(compile|exec)\\s*\\(",
+    "description": "Паттерн динамического выполнения",
+    "advice": "Ограничьте выполнение динамического кода.",
+    "severity": "Critical",
+    "confidence": 0.95,
+    "score": 15
+  },
+  {
+    "key": "dangerous_imports",
+    "pattern": "(socket|ctypes|pickle|marshal|Crypto)",
+    "description": "Опасные импорты",
+    "advice": "Проверьте использование socket, ctypes и т.д.",
+    "severity": "Medium",
+    "confidence": 0.80,
+    "score": 5
+  },
+  {
+    "key": "obfuscated_code",
+    "pattern": "\\\\x[0-9A-Fa-f]{2}",
+    "description": "Обфусцированный код",
+    "advice": "Упростите код, чтобы избежать сокрытия вредоносного поведения.",
+    "severity": "High",
+    "confidence": 0.85,
+    "score": 10
+  },
+  {
+    "key": "suspicious_file_ops",
+    "pattern": "open\\s*\\(.*[wa]\\)",
+    "description": "Подозрительные операции с файлами",
+    "advice": "Проверяйте операции записи в файлы.",
+    "severity": "Medium",
+    "confidence": 0.80,
+    "score": 5
+  },
+  {
+    "key": "dynamic_module_loading",
+    "pattern": "(importlib\\.import_module|__import__)",
+    "description": "Динамическая загрузка модулей",
+    "advice": "Проверяйте импортируемые модули.",
+    "severity": "Medium",
+    "confidence": 0.80,
+    "score": 5
+  },
+  {
+    "key": "suspicious_getattr",
+    "pattern": "getattr\\s*\\(.*['\"]",
+    "description": "Подозрительное использование getattr",
+    "advice": "Убедитесь, что getattr используется безопасно.",
+    "severity": "Medium",
+    "confidence": 0.80,
+    "score": 5
+  },
+  {
+    "key": "hardcoded_credentials",
+    "pattern": "\\b(password|secret|key)\\b",
+    "description": "Жёстко закодированные учетные данные",
+    "advice": "Храните учетные данные в переменных окружения.",
+    "severity": "Critical",
+    "confidence": 0.95,
+    "score": 15
+  },
+  {
+    "key": "insecure_protocol",
+    "pattern": "http://",
+    "description": "Использование HTTP",
+    "advice": "Используйте HTTPS для безопасной связи.",
+    "severity": "Medium",
+    "confidence": 0.80,
+    "score": 5
+  },
+  {
+    "key": "sql_injection",
+    "pattern": "(?i)select\\s+.*from\\s+.*",
+    "description": "SQL-запросы без параметризации",
+    "advice": "Используйте параметризованные запросы.",
+    "severity": "Critical",
+    "confidence": 0.95,
+    "score": 15
+  },
+  {
+    "key": "reverse_shell",
+    "pattern": "socket\\.(socket|create_connection)\\s*\\(",
+    "description": "Паттерн обратной оболочки",
+    "advice": "Удалите или защитите сетевые соединения.",
+    "severity": "Critical",
+    "confidence": 0.95,
+    "score": 15
+  },
+  {
+    "key": "weak_encryption",
+    "pattern": "cryptography\\.(md5|sha1)",
+    "description": "Слабое шифрование (MD5/SHA1)",
+    "advice": "Используйте более сильные алгоритмы, например, SHA-256.",
+    "severity": "High",
+    "confidence": 0.90,
+    "score": 10
+  },
+  {
+    "key": "malicious_comments",
+    "pattern": "(backdoor|malware|exploit|keylogger|ransom)",
+    "description": "Вредоносные комментарии",
+    "advice": "Удалите подозрительные комментарии.",
+    "severity": "Low",
+    "confidence": 0.70,
+    "score": 2
+  },
+  {
+    "key": "hidden_process",
+    "pattern": "CREATE_NO_WINDOW|SW_HIDE",
+    "description": "Создание скрытого процесса",
+    "advice": "Избегайте скрытия процессов.",
+    "severity": "High",
+    "confidence": 0.85,
+    "score": 10
+  },
+  {
+    "key": "camera_access",
+    "pattern": "(cv2\\.VideoCapture|picamera\\.PiCamera|pygame\\.camera)",
+    "description": "Доступ к камере",
+    "advice": "Проверьте необходимость и получите согласие пользователя.",
+    "severity": "High",
+    "confidence": 0.85,
+    "score": 10
+  },
+  {
+    "key": "microphone_access",
+    "pattern": "(sounddevice\\.rec|pyaudio\\.PyAudio)",
+    "description": "Доступ к микрофону",
+    "advice": "Проверьте согласие пользователя на запись.",
+    "severity": "High",
+    "confidence": 0.85,
+    "score": 10
+  },
+  {
+    "key": "dropper_code",
+    "pattern": "requests\\.get\\(.*\\)\\.content.*exec\\(|urllib\\.request\\.urlopen\\(.*\\)\\.read\\(\\)",
+    "description": "Паттерн кода-дроппера",
+    "advice": "Удалите или защитите выполнение динамического кода.",
+    "severity": "Critical",
+    "confidence": 0.95,
+    "score": 15
+  },
+  {
+    "key": "code_injection",
+    "pattern": "ctypes\\.windll|WriteProcessMemory",
+    "description": "Попытка инъекции кода",
+    "advice": "Защитите операции с памятью.",
+    "severity": "Critical",
+    "confidence": 0.95,
+    "score": 15
+  },
+  {
+    "key": "file_permission_changes",
+    "pattern": "os\\.chmod|os\\.chown",
+    "description": "Изменение прав доступа к файлам",
+    "advice": "Проверяйте изменения прав доступа.",
+    "severity": "Medium",
+    "confidence": 0.80,
+    "score": 5
+  },
+  {
+    "key": "in_memory_execution",
+    "pattern": "exec\\(compile\\(|eval\\(compile\\(|exec\\(.*decode\\(['\"]base64",
+    "description": "Выполнение кода в памяти",
+    "advice": "Избегайте выполнения декодированного кода.",
+    "severity": "Critical",
+    "confidence": 0.95,
+    "score": 15
+  },
+  {
+    "key": "env_variable_usage",
+    "pattern": "os\\.getenv|os\\.environ\\.get",
+    "description": "Доступ к переменным окружения",
+    "advice": "Проверяйте использование переменных.",
+    "severity": "Low",
+    "confidence": 0.70,
+    "score": 2
+  },
+  {
+    "key": "insecure_jwt",
+    "pattern": "jwt\\.decode\\(.*verify=False",
+    "description": "Небезопасное декодирование JWT",
+    "advice": "Всегда проверяйте подписи JWT.",
+    "severity": "High",
+    "confidence": 0.90,
+    "score": 10
+  },
+  {
+    "key": "weak_password_hash",
+    "pattern": "(hashlib\\.md5|hashlib\\.sha1)\\(",
+    "description": "Слабое хеширование паролей",
+    "advice": "Используйте bcrypt или Argon2 для хеширования паролей.",
+    "severity": "High",
+    "confidence": 0.90,
+    "score": 10
+  },
+  {
+    "key": "ssrf_vulnerability",
+    "pattern": "requests\\.get\\(.*user_input",
+    "description": "Потенциальная уязвимость SSRF",
+    "advice": "Проверяйте и санитизируйте URL перед выполнением запросов.",
+    "severity": "High",
+    "confidence": 0.85,
+    "score": 10
+  },
+  {
+    "key": "rfi_vulnerability",
+    "pattern": "include\\s*\\(\\s*['\"]\\s*http",
+    "description": "Удалённое включение файлов (RFI)",
+    "advice": "Избегайте включения удалённых файлов; используйте только локальные файлы.",
+    "severity": "Critical",
+    "confidence": 0.95,
+    "score": 15
+  },
+  {
+    "key": "eval_input",
+    "pattern": "eval\\(input\\(",
+    "description": "Прямое выполнение пользовательского ввода через eval",
+    "advice": "Никогда не выполняйте пользовательский ввод напрямую.",
+    "severity": "Critical",
+    "confidence": 0.95,
+    "score": 15
+  },
+  {
+    "key": "exec_input",
+    "pattern": "exec\\(input\\(",
+    "description": "Прямое выполнение пользовательского ввода через exec",
+    "advice": "Никогда не выполняйте пользовательский ввод напрямую.",
+    "severity": "Critical",
+    "confidence": 0.95,
+    "score": 15
+  },
+  {
+    "key": "insecure_protocol_usage",
+    "pattern": "(ssh|telnet|ftp)\\.connect\\(",
+    "description": "Использование небезопасного протокола",
+    "advice": "Используйте безопасные протоколы, например, SSH с аутентификацией по ключу.",
+    "severity": "High",
+    "confidence": 0.85,
+    "score": 10
+  },
+  {
+    "key": "path_traversal",
+    "pattern": "os\\.path\\.join\\(.*\\b(user_input|request\\.)",
+    "description": "Потенциальная уязвимость Path Traversal",
+    "advice": "Санитизируйте пользовательский ввод перед использованием в путях.",
+    "severity": "High",
+    "confidence": 0.85,
+    "score": 10
+  },
+  {
+    "key": "insecure_random",
+    "pattern": "random\\.(random|randint|choice)\\(",
+    "description": "Использование random для криптографии",
+    "advice": "Используйте secrets для криптографических задач.",
+    "severity": "Medium",
+    "confidence": 0.80,
+    "score": 5
+  },
+  {
+    "key": "flask_debug_true",
+    "pattern": "app\\.run\\(.*debug\\s*=\\s*True",
+    "description": "Flask с debug=True",
+    "advice": "Отключите debug=True в продакшене.",
+    "severity": "High",
+    "confidence": 0.90,
+    "score": 10
+  },
+  {
+    "key": "open_redirect",
+    "pattern": "flask\\.redirect\\(.*\\b(user_input|request\\.)",
+    "description": "Потенциальная уязвимость Open Redirect",
+    "advice": "Проверяйте URL перед редиректом.",
+    "severity": "High",
+    "confidence": 0.85,
+    "score": 10
+  },
+  {
+    "key": "insecure_ssl",
+    "pattern": "http\\.client\\.HTTPConnection\\(.*verify\\s*=\\s*False",
+    "description": "Небезопасное HTTP-соединение",
+    "advice": "Всегда проверяйте SSL-сертификаты.",
+    "severity": "High",
+    "confidence": 0.90,
+    "score": 10
+  },
+  {
+    "key": "proc_mem_access",
+    "pattern": "open\\s*\\(\\s*['\"]/proc/self/mem['\"]",
+    "description": "Доступ к /proc/self/mem",
+    "advice": "Избегайте доступа к системным файлам, это может быть использовано для эксплуатации.",
+    "severity": "Critical",
+    "confidence": 0.95,
+    "score": 15
+  },
+  {
+    "key": "etc_passwd_access",
+    "pattern": "open\\s*\\(\\s*['\"]/etc/passwd['\"]",
+    "description": "Доступ к /etc/passwd",
+    "advice": "Избегайте чтения системных файлов, это может быть использовано для утечки данных.",
+    "severity": "High",
+    "confidence": 0.90,
+    "score": 10
+  },
+  {
+    "key": "background_process",
+    "pattern": "multiprocessing\\.Process\\(.*target\\s*=\\s*",
+    "description": "Запуск фонового процесса",
+    "advice": "Проверяйте, что фоновые процессы не выполняют подозрительные действия.",
+    "severity": "Medium",
+    "confidence": 0.80,
+    "score": 5
+  },
+  {
+    "key": "aiohttp_insecure",
+    "pattern": "aiohttp\\.ClientSession\\(.*ssl\\s*=\\s*False",
+    "description": "Небезопасное использование aiohttp",
+    "advice": "Включите проверку SSL в aiohttp.",
+    "severity": "High",
+    "confidence": 0.90,
+    "score": 10
+  },
+  {
+    "key": "boto3_insecure",
+    "pattern": "boto3\\.client\\(.*verify\\s*=\\s*False",
+    "description": "Небезопасное использование boto3",
+    "advice": "Включите проверку SSL в boto3.",
+    "severity": "High",
+    "confidence": 0.90,
+    "score": 10
+  },
+  {
+    "key": "weak_encryption_mode",
+    "pattern": "AES\\.new\\(.*mode\\s*=\\s*AES\\.MODE_ECB",
+    "description": "Использование слабого режима шифрования ECB",
+    "advice": "Используйте безопасные режимы, например, AES.MODE_GCM.",
+    "severity": "High",
+    "confidence": 0.90,
+    "score": 10
+  },
+  {
+    "key": "no_mac_verification",
+    "pattern": "Fernet\\(.*\\)\\s*\\.encrypt\\(",
+    "description": "Шифрование без проверки MAC",
+    "advice": "Убедитесь, что используется проверка целостности (например, через Fernet).",
+    "severity": "High",
+    "confidence": 0.85,
+    "score": 10
+  },
+  {
+    "key": "logging_sensitive_data",
+    "pattern": "logging\\.(info|debug|warning|error)\\(.*(password|secret|token|key)",
+    "description": "Логирование чувствительных данных",
+    "advice": "Избегайте логирования паролей, токенов и ключей.",
+    "severity": "High",
+    "confidence": 0.90,
+    "score": 10
+  },
+  {
+    "key": "print_sensitive_data",
+    "pattern": "print\\(.*(password|secret|token|key)",
+    "description": "Вывод чувствительных данных через print",
+    "advice": "Избегайте вывода паролей, токенов и ключей в консоль.",
+    "severity": "High",
+    "confidence": 0.90,
+    "score": 10
+  },
+  {
+    "key": "fastapi_insecure",
+    "pattern": "app\\.add_middleware\\(.*allow_credentials\\s*=\\s*True",
+    "description": "Небезопасная настройка CORS в FastAPI",
+    "advice": "Ограничьте allow_credentials и настройте CORS безопасно.",
+    "severity": "High",
+    "confidence": 0.85,
+    "score": 10
+  },
+  {
+    "key": "tornado_insecure",
+    "pattern": "tornado\\.web\\.Application\\(.*debug\\s*=\\s*True",
+    "description": "Tornado с debug=True",
+    "advice": "Отключите debug=True в продакшене.",
+    "severity": "High",
+    "confidence": 0.90,
+    "score": 10
+  },
+  {
+    "key": "pyramid_insecure",
+    "pattern": "pyramid\\.config\\.Configurator\\(.*debug_all\\s*=\\s*True",
+    "description": "Pyramid с debug_all=True",
+    "advice": "Отключите debug_all=True в продакшене.",
+    "severity": "High",
+    "confidence": 0.90,
+    "score": 10
+  },
+  {
+    "key": "assert_used",
+    "pattern": "\\bassert\\b",
+    "description": "Использование assert",
+    "advice": "Избегайте assert в продакшен-коде.",
+    "severity": "Low",
+    "confidence": 0.70,
+    "score": 2
+  },
+  {
+    "key": "bad_file_perms",
+    "pattern": "os\\.chmod\\s*\\(.*0o?777|0o?666",
+    "description": "Небезопасные права доступа к файлам",
+    "advice": "Используйте ограниченные права (например, 600).",
+    "severity": "High",
+    "confidence": 0.90,
+    "score": 10
+  },
+  {
+    "key": "bind_all_interfaces",
+    "pattern": "\\.bind\\s*\\(\\s*['\"](0\\.0\\.0\\.0|::)['\"]\\s*\\)",
+    "description": "Привязка ко всем интерфейсам",
+    "advice": "Привязывайтесь к конкретным интерфейсам.",
+    "severity": "High",
+    "confidence": 0.85,
+    "score": 10
+  },
+  {
+    "key": "hardcoded_password",
+    "pattern": "(password|passwd|pwd|secret|token)\\s*=\\s*['\"][^'\"]+['\"]",
+    "description": "Жёстко закодированный пароль",
+    "advice": "Используйте переменные окружения.",
+    "severity": "Critical",
+    "confidence": 0.95,
+    "score": 15
+  },
+  {
+    "key": "hardcoded_tmp",
+    "pattern": "(/tmp|/var/tmp|C:\\\\TEMP)(\\\\|/)[^'\"]+",
+    "description": "Жёстко закодированный временный каталог",
+    "advice": "Используйте модуль tempfile.",
+    "severity": "Medium",
+    "confidence": 0.80,
+    "score": 5
+  },
+  {
+    "key": "hardcoded_ssl_cert",
+    "pattern": "context\\.load_cert_chain\\(['\"]",
+    "description": "Жёстко закодированный SSL-сертификат",
+    "advice": "Храните сертификаты безопасно.",
+    "severity": "High",
+    "confidence": 0.85,
+    "score": 10
+  },
+  {
+    "key": "aws_keys",
+    "pattern": "(AKIA|ASIA)[A-Z0-9]{16}",
+    "description": "Жёстко закодированные ключи AWS",
+    "advice": "Используйте AWS Secrets Manager.",
+    "severity": "Critical",
+    "confidence": 0.95,
+    "score": 15
+  },
+  {
+    "key": "pickle_used",
+    "pattern": "import\\s+pickle",
+    "description": "Использование pickle",
+    "advice": "Используйте JSON или другие безопасные форматы.",
+    "severity": "High",
+    "confidence": 0.90,
+    "score": 10
+  },
+  {
+    "key": "marshal_used",
+    "pattern": "marshal\\.loads\\(",
+    "description": "Использование marshal",
+    "advice": "Избегайте marshal для сериализации.",
+    "severity": "High",
+    "confidence": 0.90,
+    "score": 10
+  },
+  {
+    "key": "md5_used",
+    "pattern": "hashlib\\.md5\\(",
+    "description": "Использование MD5",
+    "advice": "Используйте SHA-256 или более сильные алгоритмы.",
+    "severity": "High",
+    "confidence": 0.90,
+    "score": 10
+  },
+  {
+    "key": "cgi_used",
+    "pattern": "import\\s+cgi",
+    "description": "Использование модуля cgi",
+    "advice": "Избегайте cgi; используйте современные фреймворки.",
+    "severity": "Medium",
+    "confidence": 0.80,
+    "score": 5
+  },
+  {
+    "key": "ftplib_used",
+    "pattern": "import\\s+ftplib",
+    "description": "Использование ftplib",
+    "advice": "Используйте безопасные альтернативы, например, sftp.",
+    "severity": "Medium",
+    "confidence": 0.80,
+    "score": 5
+  },
+  {
+    "key": "mktemp_used",
+    "pattern": "tempfile\\.mktemp\\(",
+    "description": "Использование mktemp",
+    "advice": "Используйте tempfile.TemporaryFile.",
+    "severity": "Medium",
+    "confidence": 0.80,
+    "score": 5
+  },
+  {
+    "key": "mark_safe_used",
+    "pattern": "mark_safe\\(",
+    "description": "Использование mark_safe в Django",
+    "advice": "Проверяйте ввод перед использованием mark_safe.",
+    "severity": "High",
+    "confidence": 0.85,
+    "score": 10
+  },
+  {
+    "key": "httpsconnection_used",
+    "pattern": "HTTPSConnection\\s*\\(",
+    "description": "Небезопасное HTTPS-соединение",
+    "advice": "Используйте современные настройки TLS.",
+    "severity": "Medium",
+    "confidence": 0.80,
+    "score": 5
+  },
+  {
+    "key": "urlopen_used",
+    "pattern": "urllib\\.(request\\.)?urlopen\\s*\\(",
+    "description": "Использование urllib.urlopen",
+    "advice": "Используйте requests с таймаутом и проверкой.",
+    "severity": "Medium",
+    "confidence": 0.80,
+    "score": 5
+  },
+  {
+    "key": "random_used",
+    "pattern": "import\\s+random",
+    "description": "Использование модуля random",
+    "advice": "Используйте модуль secrets для криптографических задач.",
+    "severity": "Medium",
+    "confidence": 0.80,
+    "score": 5
+  },
+  {
+    "key": "telnetlib_used",
+    "pattern": "import\\s+telnetlib",
+    "description": "Использование telnetlib",
+    "advice": "Используйте SSH или безопасные протоколы.",
+    "severity": "High",
+    "confidence": 0.85,
+    "score": 10
+  },
+  {
+    "key": "cElementTree_used",
+    "pattern": "from\\s+xml\\.etree\\s+import\\s+cElementTree",
+    "description": "Использование cElementTree",
+    "advice": "Используйте defusedxml для парсинга XML.",
+    "severity": "High",
+    "confidence": 0.85,
+    "score": 10
+  },
+  {
+    "key": "paramiko_insecure",
+    "pattern": "\\.set_missing_host_key_policy\\(",
+    "description": "Небезопасное использование Paramiko",
+    "advice": "Установите безопасные политики ключей хоста.",
+    "severity": "High",
+    "confidence": 0.85,
+    "score": 10
+  },
+  {
+    "key": "ssl_bad_version",
+    "pattern": "PROTOCOL_(SSLv2|SSLv3|TLSv1|TLSv1\\.1)\\b",
+    "description": "Небезопасная версия SSL/TLS",
+    "advice": "Используйте TLS 1.2 или выше.",
+    "severity": "High",
+    "confidence": 0.90,
+    "score": 10
+  },
+  {
+    "key": "ssl_bad_defaults",
+    "pattern": "OP_NO_SSLv2|OP_NO_SSLv3",
+    "description": "Небезопасные настройки SSL",
+    "advice": "Настройте безопасные параметры SSL.",
+    "severity": "High",
+    "confidence": 0.90,
+    "score": 10
+  },
+  {
+    "key": "paramiko_exec_command",
+    "pattern": "\\.exec_command\\s*\\(",
+    "description": "Использование exec_command в Paramiko",
+    "advice": "Проверяйте команды перед выполнением.",
+    "severity": "High",
+    "confidence": 0.85,
+    "score": 10
+  },
+  {
+    "key": "subprocess_without_shell",
+    "pattern": "subprocess\\.(Popen|run|call)\\(.*shell\\s*=\\s*False",
+    "description": "Subprocess без shell",
+    "advice": "Убедитесь в правильной проверке аргументов.",
+    "severity": "Low",
+    "confidence": 0.70,
+    "score": 2
+  },
+  {
+    "key": "other_shell_true",
+    "pattern": "\\b(shell|executable)\\s*=\\s*True",
+    "description": "Другое использование shell=True",
+    "advice": "Избегайте shell=True в пользовательских функциях.",
+    "severity": "High",
+    "confidence": 0.85,
+    "score": 10
+  },
+  {
+    "key": "partial_path_process",
+    "pattern": "(Popen|run|call)\\(['\"][^/\\\\][^'\"]+['\"]",
+    "description": "Частичный путь в процессе",
+    "advice": "Используйте полные пути для исполняемых файлов.",
+    "severity": "Medium",
+    "confidence": 0.80,
+    "score": 5
+  },
+  {
+    "key": "shell_process",
+    "pattern": "(Popen|run|call)\\(.*['\"](sh|bash|cmd|powershell)",
+    "description": "Запуск shell-процесса",
+    "advice": "Проверяйте команды перед выполнением.",
+    "severity": "High",
+    "confidence": 0.85,
+    "score": 10
+  },
+  {
+    "key": "hardcoded_sql",
+    "pattern": "(execute|executemany)\\(.*['\"](SELECT|INSERT|UPDATE|DELETE)",
+    "description": "Жёстко закодированные SQL-запросы",
+    "advice": "Используйте параметризованные запросы.",
+    "severity": "Critical",
+    "confidence": 0.95,
+    "score": 15
+  },
+  {
+    "key": "wildcard_injection",
+    "pattern": "\\*\\s*\\|",
+    "description": "Потенциальная уязвимость wildcard-инъекции",
+    "advice": "Проверяйте команды, содержащие подстановочные знаки.",
+    "severity": "High",
+    "confidence": 0.85,
+    "score": 10
+  },
+  {
+    "key": "django_extra_used",
+    "pattern": "\\.extra\\s*\\(",
+    "description": "Использование extra() в Django",
+    "advice": "Используйте ORM или параметризованные запросы.",
+    "severity": "High",
+    "confidence": 0.85,
+    "score": 10
+  },
+  {
+    "key": "django_rawsql_used",
+    "pattern": "\\.raw\\s*\\(",
+    "description": "Использование raw() в Django",
+    "advice": "Проверяйте SQL-запросы в raw().",
+    "severity": "High",
+    "confidence": 0.85,
+    "score": 10
+  },
+  {
+    "key": "logging_insecure",
+    "pattern": "logging\\.config\\.fileConfig\\(",
+    "description": "Небезопасная конфигурация логирования",
+    "advice": "Используйте dictConfig для безопасного логирования.",
+    "severity": "Medium",
+    "confidence": 0.80,
+    "score": 5
+  },
+  {
+    "key": "jinja2_autoescape_off",
+    "pattern": "autoescape\\s*=\\s*False",
+    "description": "Отключение autoescape в Jinja2",
+    "advice": "Включите autoescape для предотвращения XSS.",
+    "severity": "High",
+    "confidence": 0.90,
+    "score": 10
+  },
+  {
+    "key": "discord_token",
+    "pattern": "[MN][A-Za-z0-9]{23}\\.[A-Za-z0-9_-]{6}\\.[A-Za-z0-9_-]{27}",
+    "description": "Жёстко закодированный токен Discord",
+    "advice": "Храните токены в переменных окружения.",
+    "severity": "Critical",
+    "confidence": 0.95,
+    "score": 15
+  },
+  {
+    "key": "telegram_bot",
+    "pattern": "\\d{9,10}:[a-zA-Z0-9_-]{35}",
+    "description": "Жёстко закодированный токен Telegram Bot",
+    "advice": "Храните токены в переменных окружения.",
+    "severity": "Critical",
+    "confidence": 0.95,
+    "score": 15
+  },
+  {
+    "key": "aes_usage",
+    "pattern": "AES\\.new\\(",
+    "description": "Использование AES-шифрования",
+    "advice": "Проверяйте режимы и ключи AES для безопасности.",
+    "severity": "High",
+    "confidence": 0.85,
+    "score": 10
+  },
+  {
+    "key": "fernet_usage",
+    "pattern": "Fernet\\(",
+    "description": "Использование Fernet-шифрования",
+    "advice": "Убедитесь в безопасном управлении ключами Fernet.",
+    "severity": "High",
+    "confidence": 0.85,
+    "score": 10
+  },
+  {
+    "key": "xor_usage",
+    "pattern": "\\bXOR\\b",
+    "description": "Использование XOR-шифрования",
+    "advice": "Избегайте XOR; используйте стандартные алгоритмы шифрования.",
+    "severity": "High",
+    "confidence": 0.85,
+    "score": 10
+  },
+  {
+    "key": "socket_creation",
+    "pattern": "socket\\.socket\\(",
+    "description": "Создание сетевого сокета",
+    "advice": "Проверяйте назначение и безопасность сокетов.",
+    "severity": "High",
+    "confidence": 0.85,
+    "score": 10
+  },
+  {
+    "key": "server_creation",
+    "pattern": "(bind|listen)\\s*\\(",
+    "description": "Создание сервера",
+    "advice": "Обеспечьте безопасную конфигурацию сервера.",
+    "severity": "High",
+    "confidence": 0.85,
+    "score": 10
+  },
+  {
+    "key": "gps_access",
+    "pattern": "(gps\\.gps|geopy\\.Nominatim)",
+    "description": "Доступ к GPS",
+    "advice": "Проверьте согласие пользователя на доступ к геолокации.",
+    "severity": "High",
+    "confidence": 0.85,
+    "score": 10
+  },
+  {
+    "key": "filesystem_ops",
+    "pattern": "(open\\(|os\\.remove\\(|shutil\\.rmtree\\()",
+    "description": "Операции с файловой системой",
+    "advice": "Проверяйте права доступа и безопасность операций.",
+    "severity": "Medium",
+    "confidence": 0.80,
+    "score": 5
+  },
+  {
+    "key": "shell_injection",
+    "pattern": "subprocess\\.run\\([^)]*shell\\s*=\\s*True",
+    "description": "Потенциальная уязвимость shell-инъекции",
+    "advice": "Избегайте shell=True; используйте параметризацию.",
+    "severity": "Critical",
+    "confidence": 0.95,
+    "score": 15
+  },
+  {
+    "key": "dynamic_code_execution",
+    "pattern": "(eval|exec|compile|__import__)\\(",
+    "description": "Динамическое выполнение кода",
+    "advice": "Ограничьте использование динамического выполнения кода.",
+    "severity": "Critical",
+    "confidence": 0.95,
+    "score": 15
+  },
+  {
+    "key": "obfuscated_execution",
+    "pattern": "(base64\\.b64decode|\\\\x[0-9A-Fa-f]{2}).*(eval|exec)",
+    "description": "Обфусцированное выполнение кода",
+    "advice": "Избегайте декодирования и выполнения обфусцированного кода.",
+    "severity": "Critical",
+    "confidence": 0.95,
+    "score": 15
+  },
+  {
+    "key": "insecure_network",
+    "pattern": "(socket\\.(socket|create_connection)|bind|listen)\\(",
+    "description": "Небезопасные сетевые операции",
+    "advice": "Проверяйте конфигурацию сетевых соединений.",
+    "severity": "High",
+    "confidence": 0.90,
+    "score": 10
+  },
+  {
+    "key": "sensitive_data_exposure",
+    "pattern": "\\b(password|secret|key|token)\\b.*(print|logging)",
+    "description": "Раскрытие чувствительных данных",
+    "advice": "Избегайте логирования или вывода чувствительных данных.",
+    "severity": "Critical",
+    "confidence": 0.95,
+    "score": 15
+  },
+  {
+    "key": "hardware_access",
+    "pattern": "(cv2\\.VideoCapture|picamera\\.PiCamera|pyaudio\\.PyAudio|gps\\.gps|geopy\\.Nominatim)",
+    "description": "Доступ к аппаратным ресурсам",
+    "advice": "Получите согласие пользователя на доступ к камере, микрофону или GPS.",
+    "severity": "High",
+    "confidence": 0.90,
+    "score": 10
+  },
+  {
+    "key": "file_system_risk",
+    "pattern": "(open\\(|os\\.remove\\(|shutil\\.rmtree\\(|os\\.chmod|os\\.chown)",
+    "description": "Рискованные операции с файловой системой",
+    "advice": "Проверяйте права доступа и безопасность операций.",
+    "severity": "High",
+    "confidence": 0.85,
+    "score": 10
+  },
+  {
+    "key": "sql_injection_risk",
+    "pattern": "(?i)(select|insert|update|delete)\\s+.*(from|where)",
+    "description": "Риск SQL-инъекции",
+    "advice": "Используйте параметризованные запросы для предотвращения инъекций.",
+    "severity": "Critical",
+    "confidence": 0.95,
+    "score": 15
+  },
+  {
+    "key": "insecure_web_config",
+    "pattern": "(app\\.run\\(.*debug\\s*=\\s*True|app\\.config\\['SESSION_COOKIE_SECURE'\\]\\s*=\\s*False)",
+    "description": "Небезопасная конфигурация веб-приложения",
+    "advice": "Отключите debug-режим и настройте безопасные параметры.",
+    "severity": "High",
+    "confidence": 0.90,
+    "score": 10
+  },
+  {
+    "key": "code_injection_risk",
+    "pattern": "(ctypes\\.windll|WriteProcessMemory|subprocess\\..*shell\\s*=\\s*True)",
+    "description": "Риск инъекции кода",
+    "advice": "Проверяйте входные данные и избегайте небезопасных операций.",
+    "severity": "Critical",
+    "confidence": 0.95,
+    "score": 15
+  },
+  {
+    "key": "weak_crypto",
+    "pattern": "(hashlib\\.(md5|sha1)|AES\\.new\\(.*MODE_ECB)",
+    "description": "Использование слабой криптографии",
+    "advice": "Используйте сильные алгоритмы (SHA-256, AES-GCM).",
+    "severity": "High",
+    "confidence": 0.90,
+    "score": 10
+  },
+  {
+    "key": "open_redirect_precise",
+    "pattern": "(redirect|flask\\.redirect)\\(\\s*(request\\.args\\[['\"]?[^'\"]+['\"]?\\]|request\\.args\\.get\\(['\"]?[^'\"]+['\"]?\\s*\\))[^)]*\\)",
+    "description": "Open Redirect через redirect() с непроверенным параметром из request.args.",
+    "advice": "Проверяйте и валидируйте URL перед редиректом, используйте белый список доменов.",
+    "severity": "High",
+    "confidence": 0.90,
+    "score": 10
+  },
+  {
+    "key": "ldap_injection_concat_filter",
+    "pattern": "search_filter\\s*=\\s*['\"][^'\"]*\\+[^'\"]*\\)[\\s\\S]*?(ldap\\.search_s|search_s)\\([^)]*search_filter[^)]*\\)",
+    "description": "LDAP-инъекция через конкатенацию строк в переменной search_filter, используемой в search_s.",
+    "advice": "Экранируйте пользовательский ввод в LDAP-фильтрах с помощью ldap.filter.escape_filter_chars().",
+    "severity": "High",
+    "confidence": 0.85,
+    "score": 10
+  },
+  {
+    "key": "logging_injection_app_logger",
+    "pattern": "app\\.logger\\.(info|debug|warning|error|critical)\\(\\s*['\"][^'\"]*%[^'\"]*\\s*,\\s*request\\.args\\[['\"][^'\"]+['\"]]\\s*\\)",
+    "description": "Logging-инъекция через форматирование в методах app.logger с пользовательским вводом из request.args.",
+    "advice": "Убедитесь, что пользовательский ввод экранируется перед логированием, хотя форматирование через %s безопасно.",
+    "severity": "Medium",
+    "confidence": 0.80,
+    "score": 5
+  },
+  {
+    "key": "server_side_template_injection_render",
+    "pattern": "(render_template_string|flask\\.render_template_string)\\(\\s*(template|f\"[^\"]*\\{[^}]+\\}\")[^)]*\\)",
+    "description": "Server-Side Template Injection через render_template_string() с f-строкой или переменной, содержащей пользовательский ввод.",
+    "advice": "Избегайте использования пользовательского ввода в шаблонах, экранируйте данные.",
+    "severity": "Critical",
+    "confidence": 0.95,
+    "score": 15
+  },
+  {
+    "key": "insecure_jwt_verify",
+    "pattern": "(pyjwt\\.decode|jwt\\.decode|decode)\\([^)]*verify\\s*=\\s*False[^)]*\\)",
+    "description": "Небезопасная верификация JWT с отключённой проверкой подписи через verify=False.",
+    "advice": "Всегда проверяйте подпись JWT, используйте verify=True и указывайте секретный ключ.",
+    "severity": "High",
+    "confidence": 0.90,
+    "score": 10
+  },
+  {
+    "key": "insecure_jwt_options_dict",
+    "pattern": "(pyjwt\\.decode|jwt\\.decode|decode)\\([^)]*options\\s*=\\s*\\{[^{}]*verify_signature\\s*:\\s*False[^}]*\\}[^)]*\\)",
+    "description": "Небезопасная верификация JWT с отключённой проверкой подписи через options с verify_signature=False.",
+    "advice": "Всегда проверяйте подпись JWT, используйте verify_signature=True и указывайте секретный ключ.",
+    "severity": "High",
+    "confidence": 0.90,
+    "score": 10
+  },
+  {
+    "key": "insecure_jwt_process",
+    "pattern": "(python_jwt\\.process_jwt|jwt\\.process_jwt|process_jwt)\\([^)]+\\)",
+    "description": "Небезопасная верификация JWT через process_jwt без проверки подписи.",
+    "advice": "Используйте методы с проверкой подписи, например, jwt.decode с verify=True.",
+    "severity": "High",
+    "confidence": 0.90,
+    "score": 10
+  },
+  {
+    "key": "server_side_template_injection_render",
+    "pattern": "(render_template_string|flask\\.render_template_string)\\(\\s*f\"[^\"]*\\{[^}]+\\}\"[^)]*\\)",
+    "description": "Server-Side Template Injection через render_template_string() с f-строкой, содержащей пользовательский ввод.",
+    "advice": "Избегайте использования пользовательского ввода в шаблонах, экранируйте данные.",
+    "severity": "Critical",
+    "confidence": 0.95,
+    "score": 15
+  },
+  {
+    "key": "command_injection_format",
+    "pattern": "os\\.system\\(\\s*['\"][^'\"]*%[^'\"]*\\)[^'\"]*\\)",
+    "description": "Command Injection через os.system() с использованием %-форматирования пользовательского ввода.",
+    "advice": "Используйте subprocess.run() с аргументами в виде списка и избегайте форматирования пользовательского ввода.",
+    "severity": "Critical",
+    "confidence": 0.95,
+    "score": 15
+  },
+  {
+    "key": "insecure_ssl_context_create",
+    "pattern": "ssl\\._create_(unverified_context|stdlib_context)\\(\\)",
+    "description": "Небезопасная настройка SSL через _create_unverified_context или _create_stdlib_context.",
+    "advice": "Используйте ssl.create_default_context() для обеспечения проверки сертификатов.",
+    "severity": "High",
+    "confidence": 0.90,
+    "score": 10
+  },
+  {
+    "key": "insecure_ssl_hostname",
+    "pattern": "(ssl\\.)?(create_default_context|_create_default_https_context)\\(\\)[\\s\\S]*?check_hostname\\s*=\\s*False",
+    "description": "Небезопасная настройка SSL через отключение проверки имени хоста.",
+    "advice": "Оставьте check_hostname=True для безопасной проверки сертификатов.",
+    "severity": "High",
+    "confidence": 0.90,
+    "score": 10
+  }
+]

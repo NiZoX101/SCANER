@@ -16,10 +16,29 @@ from PyQt5.QtCore import Qt, QThread, pyqtSignal
 from PyQt5.QtGui import QPixmap, QBrush, QColor
 from scanner_core import perform_scan, analyze_code, score_maliciousness
 from report_generator import generate_detailed_report
-from utils import save_last_scan, load_last_scan
-from github_utils import get_repository_files
-import requests  # Для io.net API
-import json  # Для отладки
+import requests
+import json
+from io import BytesIO
+import base64
+
+# Stub implementations for missing modules
+def save_last_scan(session):
+    try:
+        with open('last_scan.json', 'w', encoding='utf-8') as f:
+            json.dump(session, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"Не удалось сохранить последний скан: {e}")
+
+def load_last_scan():
+    try:
+        with open('last_scan.json', 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return None
+
+def get_repository_files(repo_url, token):
+    from github_utils import get_repository_files
+    return get_repository_files(repo_url, token)
 
 class ScanWorker(QThread):
     progress = pyqtSignal(int, str)
@@ -38,18 +57,24 @@ class ScanWorker(QThread):
         try:
             files = get_repository_files(self.repo_url, self.token)
             if not files:
-                self.error.emit("No Python files found in repository.")
+                self.error.emit("Не найдено файлов Python в репозитории.")
                 return
 
             total_files = len(files)
             results = {}
             scores = {}
+            
             for i, (filename, code) in enumerate(files):
-                self.log.emit(f"Analyzing {filename}")
+                self.log.emit(f"Анализ файла {filename}")
+                
+                # Выполняем только выбранные типы проверок
                 partial_results = analyze_code([(filename, code)], self.yara_source, self.check_types)
                 results.update(partial_results)
-                partial_scores = score_maliciousness(partial_results)
+                
+                # Вычисляем баллы
+                partial_scores = score_maliciousness(partial_results, self.check_types)
                 scores.update(partial_scores)
+                
                 progress = int((i + 1) / total_files * 100)
                 self.progress.emit(progress, filename)
                 self.msleep(10)
@@ -71,7 +96,7 @@ class QtLogHandler(logging.Handler):
 class CodeScannerGUI(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Advanced Code Security Scanner")
+        self.setWindowTitle("Расширенный сканер безопасности кода")
         self.setGeometry(100, 100, 1200, 800)
 
         self.central_widget = QWidget()
@@ -82,27 +107,27 @@ class CodeScannerGUI(QMainWindow):
         self.main_layout.addWidget(self.tabs)
 
         self.scan_tab = QWidget()
-        self.tabs.addTab(self.scan_tab, "Scan")
+        self.tabs.addTab(self.scan_tab, "Скан")
         self.setup_scan_tab()
 
         self.results_tab = QWidget()
-        self.tabs.addTab(self.results_tab, "Results")
+        self.tabs.addTab(self.results_tab, "Результаты")
         self.setup_results_tab()
 
         self.details_tab = QWidget()
-        self.tabs.addTab(self.details_tab, "Details")
+        self.tabs.addTab(self.details_tab, "Подробности")
         self.setup_details_tab()
 
         self.logs_tab = QWidget()
-        self.tabs.addTab(self.logs_tab, "Logs")
+        self.tabs.addTab(self.logs_tab, "Логи")
         self.setup_logs_tab()
 
         self.chart_tab = QWidget()
-        self.tabs.addTab(self.chart_tab, "Charts")
+        self.tabs.addTab(self.chart_tab, "Диаграммы")
         self.setup_chart_tab()
 
         self.graph_tab = QWidget()
-        self.tabs.addTab(self.graph_tab, "Interaction Graph")
+        self.tabs.addTab(self.graph_tab, "График взаимодействия")
         self.setup_graph_tab()
 
         self.logger = logging.getLogger("CodeScanner")
@@ -183,79 +208,83 @@ class CodeScannerGUI(QMainWindow):
     def setup_scan_tab(self):
         layout = QVBoxLayout(self.scan_tab)
 
-        input_group = QGroupBox("Scan Configuration")
+        input_group = QGroupBox("Конфигурация сканирования")
         input_layout = QFormLayout()
         input_group.setLayout(input_layout)
 
         self.repo_url_input = QLineEdit()
-        input_layout.addRow("Repository URL:", self.repo_url_input)
+        input_layout.addRow("URL репозитория:", self.repo_url_input)
 
         self.token_input = QLineEdit()
         self.token_input.setEchoMode(QLineEdit.Password)
-        input_layout.addRow("GitHub Token:", self.token_input)
+        input_layout.addRow("Токен GitHub:", self.token_input)
 
-        # Поле для API-ключа io.net
         self.io_net_api_key_input = QLineEdit()
         self.io_net_api_key_input.setEchoMode(QLineEdit.Password)
-        self.io_net_api_key_input.setPlaceholderText("Enter io.net API key or set IO_NET_API_KEY env variable")
-        input_layout.addRow("io.net API Key (optional):", self.io_net_api_key_input)
+        self.io_net_api_key_input.setPlaceholderText("Введите ключ API io.net или установите переменную окружения IO_NET_API_KEY")
+        input_layout.addRow("Ключ API io.net (опционально):", self.io_net_api_key_input)
 
         yara_layout = QHBoxLayout()
         self.yara_input = QLineEdit()
-        yara_browse = QPushButton("Browse")
+        yara_browse = QPushButton("Обзор")
         yara_browse.clicked.connect(self.browse_yara)
         yara_layout.addWidget(self.yara_input)
         yara_layout.addWidget(yara_browse)
-        input_layout.addRow("YARA Rules File:", yara_layout)
+        input_layout.addRow("Файл правил YARA:", yara_layout)
 
         output_layout = QHBoxLayout()
         self.output_input = QLineEdit("scan_report.xlsx")
-        output_browse = QPushButton("Browse")
+        output_browse = QPushButton("Обзор")
         output_browse.clicked.connect(self.browse_output)
         output_layout.addWidget(self.output_input)
         output_layout.addWidget(output_browse)
-        input_layout.addRow("Output Report:", output_layout)
+        input_layout.addRow("Путь к отчету:", output_layout)
 
         layout.addWidget(input_group)
 
-        check_group = QGroupBox("Check Types")
+        check_group = QGroupBox("Типы проверок")
         check_layout = QHBoxLayout()
         self.check_types = {
             "ast": QCheckBox("AST"),
-            "regex": QCheckBox("Regex"),
+            "regex": QCheckBox("Регулярные выражения"),
             "yara": QCheckBox("YARA"),
-            "bandit": QCheckBox("Bandit"),
-            "heuristics": QCheckBox("Heuristics")
+            "heuristics": QCheckBox("Эвристика")
         }
-        for checkbox in self.check_types.values():
+        display_names = {
+            "ast": "AST",
+            "regex": "Регулярные выражения",
+            "yara": "YARA",
+            "heuristics": "Эвристика"
+        }
+        for check, checkbox in self.check_types.items():
+            checkbox.setText(display_names[check])
             checkbox.setChecked(True)
             check_layout.addWidget(checkbox)
         check_group.setLayout(check_layout)
         layout.addWidget(check_group)
 
-        mode_group = QGroupBox("Report Mode")
+        mode_group = QGroupBox("Режим отчета")
         mode_layout = QHBoxLayout()
-        self.overall_mode = QRadioButton("Overall")
-        self.separate_mode = QRadioButton("Separate")
+        self.overall_mode = QRadioButton("Общий")
+        self.separate_mode = QRadioButton("Отдельный")
         self.overall_mode.setChecked(True)
         mode_layout.addWidget(self.overall_mode)
         mode_layout.addWidget(self.separate_mode)
         mode_group.setLayout(mode_layout)
         layout.addWidget(mode_group)
 
-        self.progress_label = QLabel("Scan Progress:")
+        self.progress_label = QLabel("Прогресс сканирования:")
         layout.addWidget(self.progress_label)
         self.progress_bar = QProgressBar()
         self.progress_bar.setValue(0)
         layout.addWidget(self.progress_bar)
 
-        # Кнопки для сканирования, DeepSeek и io.net
         button_layout = QHBoxLayout()
-        self.scan_button = QPushButton("Start Scan")
+        self.scan_button = QPushButton("Начать скан")
         self.scan_button.clicked.connect(self.start_scan)
         button_layout.addWidget(self.scan_button)
 
-        self.io_net_button = QPushButton("Summarize with AI")
+        self.io_net_button = QPushButton("Резюме с помощью AI")
         self.io_net_button.clicked.connect(self.summarize_with_io_net)
         self.io_net_button.setEnabled(False)
         button_layout.addWidget(self.io_net_button)
@@ -271,7 +300,7 @@ class CodeScannerGUI(QMainWindow):
         layout.addWidget(self.summary_text)
         self.results_table = QTableWidget()
         self.results_table.setColumnCount(2)
-        self.results_table.setHorizontalHeaderLabels(["File", "Risk Score"])
+        self.results_table.setHorizontalHeaderLabels(["Файл", "Балл риска"])
         self.results_table.setSelectionMode(QTableWidget.SingleSelection)
         self.results_table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.results_table.horizontalHeader().setStretchLastSection(True)
@@ -281,7 +310,7 @@ class CodeScannerGUI(QMainWindow):
     def setup_details_tab(self):
         layout = QVBoxLayout(self.details_tab)
         file_layout = QHBoxLayout()
-        file_label = QLabel("Select File:")
+        file_label = QLabel("Выберите файл:")
         self.file_combo = QComboBox()
         self.file_combo.currentIndexChanged.connect(self.update_details)
         file_layout.addWidget(file_label)
@@ -289,7 +318,7 @@ class CodeScannerGUI(QMainWindow):
         layout.addLayout(file_layout)
         self.details_table = QTableWidget()
         self.details_table.setColumnCount(5)
-        self.details_table.setHorizontalHeaderLabels(["Line", "Type", "Code Snippet", "Reason", "Advice"])
+        self.details_table.setHorizontalHeaderLabels(["Номер строки", "Тип", "Фрагмент кода", "Причина", "Совет"])
         self.details_table.setSelectionMode(QTableWidget.NoSelection)
         self.details_table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.details_table.horizontalHeader().setStretchLastSection(True)
@@ -312,7 +341,7 @@ class CodeScannerGUI(QMainWindow):
         scroll.setWidgetResizable(True)
         scroll_content = QWidget()
         scroll_layout = QVBoxLayout(scroll_content)
-        self.findings_chart_label = QLabel("Findings by File and Check Type")
+        self.findings_chart_label = QLabel("Нахождения по файлам и типам проверок")
         scroll_layout.addWidget(self.findings_chart_label)
         self.findings_chart_image = QLabel()
         self.findings_chart_image.setAlignment(Qt.AlignCenter)
@@ -327,7 +356,7 @@ class CodeScannerGUI(QMainWindow):
         scroll.setWidgetResizable(True)
         scroll_content = QWidget()
         scroll_layout = QVBoxLayout(scroll_content)
-        self.graph_label = QLabel("File Interaction Graph")
+        self.graph_label = QLabel("График взаимодействия файлов")
         scroll_layout.addWidget(self.graph_label)
         self.graph_image = QLabel()
         self.graph_image.setAlignment(Qt.AlignCenter)
@@ -337,12 +366,12 @@ class CodeScannerGUI(QMainWindow):
         layout.addWidget(scroll)
 
     def browse_yara(self):
-        filename, _ = QFileDialog.getOpenFileName(self, "Select YARA Rules File", "", "YARA Files (*.yar *.yara);;All Files (*.*)")
+        filename, _ = QFileDialog.getOpenFileName(self, "Выберите файл правил YARA", "", "YARA Files (*.yar *.yara);;Все файлы (*.*)")
         if filename:
             self.yara_input.setText(filename)
 
     def browse_output(self):
-        filename, _ = QFileDialog.getSaveFileName(self, "Select Output File", "scan_report.xlsx", "Excel Files (*.xlsx);;All Files (*.*)")
+        filename, _ = QFileDialog.getSaveFileName(self, "Выберите путь для отчета", "scan_report.xlsx", "Excel Files (*.xlsx);;Все файлы (*.*)")
         if filename:
             self.output_input.setText(filename)
 
@@ -355,11 +384,11 @@ class CodeScannerGUI(QMainWindow):
         report_mode = "overall" if self.overall_mode.isChecked() else "separate"
 
         if not repo_url or not token or not output_path:
-            QMessageBox.critical(self, "Error", "Please fill in all required fields.")
+            QMessageBox.critical(self, "Ошибка", "Пожалуйста, заполните все обязательные поля.")
             return
 
         if not selected_checks:
-            QMessageBox.critical(self, "Error", "Please select at least one check type.")
+            QMessageBox.critical(self, "Ошибка", "Пожалуйста, выберите хотя бы один тип проверки.")
             return
 
         yara_source = None
@@ -368,7 +397,7 @@ class CodeScannerGUI(QMainWindow):
                 yara_source = f.read()
 
         self.progress_bar.setValue(0)
-        self.logger.info("Starting scan...")
+        self.logger.info("Начало сканирования...")
         self.results_table.setRowCount(0)
         self.details_table.setRowCount(0)
         self.file_combo.clear()
@@ -387,49 +416,79 @@ class CodeScannerGUI(QMainWindow):
 
     def update_progress(self, value, filename):
         self.progress_bar.setValue(value)
-        self.logger.info(f"Progress: {value}% ({filename})")
+        self.logger.info(f"Прогресс: {value}% ({filename})")
 
     def generate_charts(self, scores, results, selected_checks):
+        if not results or not scores:
+            self.findings_chart_image.clear()
+            return
         files = list(results.keys())
-        check_types = ['AST', 'Regex', 'YARA', 'Bandit', 'Heuristics']
-        check_types = [ct for ct in check_types if ct.lower() in selected_checks or (ct == 'Heuristics' and 'heuristics' in selected_checks)]
+        check_types = ['ast', 'regex', 'yara', 'heuristics']
+        check_types = [ct for ct in check_types if ct in selected_checks]
+    
+        # Инициализация данных для диаграммы
         findings_data = {file: {ct: 0 for ct in check_types} for file in files}
+    
         for file, patterns in results.items():
+            # Подсчёт находок для каждого типа проверки
             for finding in patterns.get('detailed_findings', []):
-                match = re.match(r"Line (\d+|-): (.*?) \[Type: (.*?)\] \[Reason: (.*?)\] \[Advice: (.*?)\]", finding)
+                # Парсим тип проверки из строки находки
+                match = re.search(r"\[Type:\s*(\w+)\]", finding)
                 if match:
-                    check_type = match.group(3)
+                    check_type = match.group(1).lower()
                     if check_type in findings_data[file]:
                         findings_data[file][check_type] += 1
+        
+            # Эвристические проверки могут быть в detailed_lines
             if 'heuristics' in selected_checks:
-                for finding in patterns.get('detailed_lines', []):
-                    findings_data[file]['Heuristics'] += 1
-
+                findings_data[file]['heuristics'] += len([line for line in patterns.get('detailed_lines', []) if re.search(r"\[Type: Heuristics\]", line)])
+    
+        # Построение диаграммы
         x = np.arange(len(files))
         width = 0.15
-        colors = ['#1e90ff', '#ffa500', '#32c832', '#dc3232', '#800080']
-        plt.figure(figsize=(12, 8))
+        colors = ['#1e90ff', '#ffa500', '#32c832', '#800080']
+    
+        plt.figure(figsize=(15, 10))  # Увеличен размер фигуры
         plt.style.use('dark_background')
+    
         for i, check_type in enumerate(check_types):
             counts = [findings_data[file][check_type] for file in files]
-            bars = plt.bar(x + i * width, counts, width, label=check_type, color=colors[i % len(colors)])
+            bars = plt.bar(x + i * width, counts, width, 
+                          label=check_type.capitalize(), 
+                          color=colors[i % len(colors)])
+        
             for bar in bars:
                 height = bar.get_height()
                 if height > 0:
-                    plt.text(bar.get_x() + bar.get_width()/2., height, f'{int(height)}',
-                            ha='center', va='bottom', fontsize=8, color='#ffffff')
-        plt.xlabel('Files', fontsize=12, color='#ffffff')
-        plt.ylabel('Number of Findings', fontsize=12, color='#ffffff')
-        plt.title('Findings by File and Check Type', fontsize=16, color='#ffffff')
-        plt.xticks(x + width * (len(check_types) - 1) / 2, files, rotation=45, ha='right', color='#ffffff')
+                    plt.text(bar.get_x() + bar.get_width()/2., height, 
+                            f'{int(height)}', ha='center', va='bottom', 
+                            fontsize=8, color='#ffffff')
+    
+        plt.xlabel('Файлы', fontsize=12, color='#ffffff')
+        plt.ylabel('Количество находок', fontsize=12, color='#ffffff')
+        plt.title('Нахождения по файлам и типам проверок', fontsize=16, color='#ffffff')
+        plt.xticks(x + width * (len(check_types) - 1) / 2, 
+                  [os.path.basename(f) for f in files], 
+                  rotation=45, ha='right', color='#ffffff')
         plt.yticks(color='#ffffff')
-        plt.legend(fontsize=10, loc='upper right', frameon=True, facecolor='#3c3f41', edgecolor='#ffffff')
+        plt.legend(fontsize=10, loc='upper right', frameon=True, 
+                  facecolor='#3c3f41', edgecolor='#ffffff')
         plt.grid(True, axis='y', linestyle='--', alpha=0.7, color='#555555')
         plt.tight_layout()
-        plt.savefig('findings_by_check.png', facecolor='#2b2b2b', edgecolor='#2b2b2b')
+    
+        # Сохранение и отображение диаграммы
+        buffer = BytesIO()
+        plt.savefig(buffer, format='png', facecolor='#2b2b2b', edgecolor='#2b2b2b', dpi=150)  # Увеличен dpi
         plt.close()
-        findings_pixmap = QPixmap('findings_by_check.png')
-        self.findings_chart_image.setPixmap(findings_pixmap.scaled(1200, 800, Qt.KeepAspectRatio))
+        buffer.seek(0)
+        findings_pixmap = QPixmap()
+        findings_pixmap.loadFromData(buffer.read())
+        # Динамическое масштабирование с минимальным размером 1200x900
+        target_width = max(1200, self.findings_chart_image.width())
+        target_height = max(900, self.findings_chart_image.height())
+        self.findings_chart_image.setPixmap(findings_pixmap.scaled(
+            target_width, target_height, Qt.KeepAspectRatio, Qt.SmoothTransformation
+        ))
 
     def generate_interaction_graph(self, results, files):
         G = nx.DiGraph()
@@ -457,39 +516,42 @@ class CodeScannerGUI(QMainWindow):
                                  set(k for k, v in patterns2.items() if v and k not in ['_code', 'detailed_findings', 'detailed_lines'])
                         if shared:
                             G.add_edge(fname1, fname2, weight=len(shared))
+        if not G.nodes():
+            self.graph_image.clear()
+            return
         plt.figure(figsize=(10, 8))
         plt.style.use('dark_background')
         pos = nx.spring_layout(G, k=0.5, iterations=50)
-        nx.draw(G, pos, with_labels=True, node_color='#1e90ff', node_size=1500, font_size=8, 
+        nx.draw(G, pos, with_labels=True, node_color='#1e90ff', node_size=1500, font_size=8,
                 font_color='white', edge_color='#555555', arrows=True)
-        plt.title('File Interaction Graph (Imports and Shared Patterns)', fontsize=16, color='#ffffff')
-        plt.tight_layout()
-        plt.savefig('interaction_graph.png', facecolor='#2b2b2b', edgecolor='#2b2b2b')
+        plt.title('График взаимодействия файлов (Импорты и общие шаблоны)', fontsize=16, color='#ffffff')
+        plt.subplots_adjust(left=0.15, right=0.85, top=0.9, bottom=0.1)
+        buffer = BytesIO()
+        plt.savefig(buffer, format='png', facecolor='#2b2b2b', edgecolor='#2b2b2b')
         plt.close()
-        graph_pixmap = QPixmap('interaction_graph.png')
+        buffer.seek(0)
+        graph_pixmap = QPixmap()
+        graph_pixmap.loadFromData(buffer.read())
         self.graph_image.setPixmap(graph_pixmap.scaled(1000, 800, Qt.KeepAspectRatio))
 
     def summarize_with_io_net(self):
-        """Суммирует отчет сканирования с помощью io.net API и выводит результаты."""
         if not self.last_scan:
-            QMessageBox.critical(self, "Error", "No scan results available. Please run a scan first.")
+            QMessageBox.critical(self, "Ошибка", "Нет результатов сканирования. Пожалуйста, выполните скан сначала.")
             return
 
         results = self.last_scan.get("results", {})
         scores = self.last_scan.get("scores", {})
         selected_checks = self.last_scan.get("check_types", [])
 
-        # Получение API-ключа
         api_key = self.io_net_api_key_input.text() or os.environ.get("IO_NET_API_KEY")
         if not api_key:
-            QMessageBox.critical(self, "Error", "io.net API key is required. Set it in the input field or as IO_NET_API_KEY environment variable.")
+            QMessageBox.critical(self, "Ошибка", "Требуется ключ API io.net. Установите его в поле ввода или как переменную окружения IO_NET_API_KEY.")
             return
 
-        # Формирование текстового отчета
         report_text = "Отчет об анализе безопасности кода\n\n"
-        report_text += f"Всего отсканированных файлов: {len(scores)}\n"
+        report_text += f"Общее количество отсканированных файлов: {len(scores)}\n"
         report_text += f"Средний балл риска: {sum(scores.values()) / len(scores) if scores else 0:.2f}\n"
-        report_text += f"Файлы с высоким риском (балл ≥ 70): {sum(1 for s in scores.values() if s >= 70)}\n"
+        report_text += f"Файлы с высоким риском (балл >= 70): {sum(1 for s in scores.values() if s >= 70)}\n"
         report_text += f"Использованные типы проверок: {', '.join(selected_checks)}\n\n"
         report_text += "Найденные проблемы по файлам:\n"
         for filename, patterns in results.items():
@@ -499,10 +561,9 @@ class CodeScannerGUI(QMainWindow):
             for finding in patterns.get("detailed_lines", []):
                 report_text += f"  {finding}\n"
 
-        # Формирование сообщения для io.net
         system_message = "Система анализа безопасности кода."
         user_message = (
-            "На основе предоставленного отчета об анализе безопасности кода, содержащего результаты методов сканирования (AST, Regex, YARA, Bandit, Heuristics), составить официальный отчет на русском языке со следующей структурой:\n"
+            "На основе предоставленного отчета об анализе безопасности кода, содержащего результаты методов сканирования (AST, Регулярные выражения, YARA, Эвристика), составить официальный отчет на русском языке со следующей структурой:\n"
             "1. Выявленные уязвимости и потенциальные угрозы (перечислить категории уязвимостей с указанием файлов, строк и рисков).\n"
             "2. Общая оценка безопасности (указать уровень риска: Низкий, Средний, Высокий, с обоснованием).\n"
             "3. Рекомендации по устранению уязвимостей (с указанием приоритетов: Приоритет 1 - Высокий, Приоритет 2 - Средний, Приоритет 3 - Низкий).\n"
@@ -512,7 +573,7 @@ class CodeScannerGUI(QMainWindow):
         )
 
         try:
-            self.logger.info("Sending report to io.net API...")
+            self.logger.info("Отправка отчета в API io.net...")
             headers = {
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {api_key}"
@@ -530,7 +591,7 @@ class CodeScannerGUI(QMainWindow):
                     }
                 ]
             }
-            self.logger.debug(f"Sending payload: {json.dumps(data, indent=2)}")
+            self.logger.debug(f"Отправляемые данные: {json.dumps(data, indent=2)}")
             response = requests.post(
                 "https://api.intelligence.io.solutions/api/v1/chat/completions",
                 headers=headers,
@@ -539,23 +600,31 @@ class CodeScannerGUI(QMainWindow):
             response.raise_for_status()
             data = response.json()
             io_net_response = data["choices"][0]["message"]["content"]
-            io_net_response = io_net_response.split("</think>\n\n")[1]
+            if "</think>" in io_net_response:
+                io_net_response = io_net_response.split("</think>\n\n")[1]
+            else:
+                io_net_response = io_net_response.strip()
 
-            # Вывод результатов в summary_text на русском языке
             self.summary_text.append("\n=== Отчет анализа безопасности от io.net ===\n")
             self.summary_text.append(io_net_response)
-            self.logger.info("io.net analysis completed successfully.")
-            QMessageBox.information(self, "Success", "Анализ безопасности от io.net завершен и добавлен во вкладку Results.")
+            self.logger.info("Анализ io.net успешно завершен.")
+            QMessageBox.information(self, "Успех", "Анализ безопасности от io.net завершен и добавлен во вкладку Результаты.")
 
         except requests.exceptions.RequestException as e:
-            self.logger.error(f"io.net analysis failed: {str(e)}")
+            self.logger.error(f"Не удалось выполнить анализ io.net: {str(e)}")
             if hasattr(e.response, 'text'):
-                self.logger.error(f"Server response: {e.response.text}")
-            QMessageBox.critical(self, "Error", f"Анализ от io.net не выполнен: {str(e)}")
+                self.logger.error(f"Ответ сервера: {e.response.text}")
+            QMessageBox.critical(self, "Ошибка", f"Анализ от io.net не выполнен: {str(e)}")
 
     def scan_completed(self, results, scores, files, output_path, selected_checks, report_mode):
         try:
+            # 1. Рассчитываем баллы с учётом выбранных типов проверок
+            scores = score_maliciousness(results, selected_checks)
+
+            # 2. Генерируем отчёт
             generate_detailed_report(results, scores, output_path, selected_checks, report_mode)
+
+            # 3. Сохраняем сессию
             session = {
                 "repo_url": self.repo_url_input.text(),
                 "token": self.token_input.text(),
@@ -566,31 +635,39 @@ class CodeScannerGUI(QMainWindow):
                 "results": results,
                 "scores": scores,
                 "files": [f[0] for f in files],
-                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                "timestamp": datetime.now().strftime("%d.%m.%Y %H:%M:%S")
             }
             save_last_scan(session)
             self.last_scan = session
 
-            self.summary_text.append(f"Последний скан: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-            self.summary_text.append(f"Всего отсканированных файлов: {len(scores)}")
+            # 4. Обновляем GUI
+            self.summary_text.clear()
+            self.summary_text.append(f"Последний скан: {session['timestamp']}\n")
+            self.summary_text.append(f"Общее количество файлов: {len(scores)}")
+        
             avg_score = sum(scores.values()) / len(scores) if scores else 0
             self.summary_text.append(f"Средний балл риска: {avg_score:.2f}")
+        
             high_risk = sum(1 for s in scores.values() if s >= 70)
-            self.summary_text.append(f"Файлы с высоким риском (балл ≥ 70): {high_risk}\n")
-            self.summary_text.append(f"Использованные типы проверок: {', '.join(selected_checks)}")
+            self.summary_text.append(f"Файлы с высоким риском (≥70): {high_risk}\n")
+            self.summary_text.append(f"Использованные проверки: {', '.join(selected_checks)}")
 
+            # 5. Заполняем таблицу результатов
             self.results_table.setRowCount(len(scores))
             for row, (filename, score) in enumerate(scores.items()):
                 self.results_table.setItem(row, 0, QTableWidgetItem(filename))
+            
                 score_item = QTableWidgetItem(f"{score}")
                 if score >= 70:
-                    score_item.setBackground(QBrush(QColor(220, 50, 50)))
+                    score_item.setBackground(QBrush(QColor(220, 50, 50)))  # Красный
                 elif score >= 40:
-                    score_item.setBackground(QBrush(QColor(255, 165, 0)))
+                    score_item.setBackground(QBrush(QColor(255, 165, 0)))  # Оранжевый
                 else:
-                    score_item.setBackground(QBrush(QColor(50, 200, 50)))
+                    score_item.setBackground(QBrush(QColor(50, 200, 50)))  # Зелёный
                 self.results_table.setItem(row, 1, score_item)
 
+            # 6. Обновляем детали и графики
+            self.file_combo.clear()
             self.file_combo.addItems(scores.keys())
             if scores:
                 self.update_details()
@@ -598,19 +675,21 @@ class CodeScannerGUI(QMainWindow):
             self.generate_charts(scores, results, selected_checks)
             self.generate_interaction_graph(results, files)
 
-            self.logger.info("Scan completed successfully")
-            QMessageBox.information(self, "Success", "Скан завершён успешно!")
+            # 7. Активируем кнопку AI-анализа
             self.io_net_button.setEnabled(True)
+            self.logger.info("Сканирование успешно завершено")
+            QMessageBox.information(self, "Успех", "Сканирование завершено!")
+
         except Exception as e:
-            self.logger.error(f"Post-scan processing failed: {str(e)}")
-            QMessageBox.critical(self, "Error", f"Обработка после сканирования не удалась: {str(e)}")
+            self.logger.error(f"Ошибка обработки результатов: {str(e)}")
+            QMessageBox.critical(self, "Ошибка", f"Ошибка обработки: {str(e)}")
         finally:
             self.scan_button.setEnabled(True)
             self.progress_bar.setValue(100)
 
     def scan_failed(self, error_msg):
-        self.logger.error(f"Scan failed: {error_msg}")
-        QMessageBox.critical(self, "Error", f"Скан не выполнен: {error_msg}")
+        self.logger.error(f"Сканирование не удалось: {error_msg}")
+        QMessageBox.critical(self, "Ошибка", f"Сканирование не удалось: {error_msg}")
         self.scan_button.setEnabled(True)
         self.progress_bar.setValue(0)
         self.io_net_button.setEnabled(False)
@@ -631,12 +710,12 @@ class CodeScannerGUI(QMainWindow):
 
         scores = self.last_scan.get("scores", {})
         self.summary_text.clear()
-        self.summary_text.append(f"Последний скан: {self.last_scan.get('timestamp', 'Unknown')}\n")
-        self.summary_text.append(f"Всего отсканированных файлов: {len(scores)}")
+        self.summary_text.append(f"Последний скан: {self.last_scan.get('timestamp', 'Неизвестно')}\n")
+        self.summary_text.append(f"Общее количество отсканированных файлов: {len(scores)}")
         avg_score = sum(scores.values()) / len(scores) if scores else 0
         self.summary_text.append(f"Средний балл риска: {avg_score:.2f}")
         high_risk = sum(1 for s in scores.values() if s >= 70)
-        self.summary_text.append(f"Файлы с высоким риском (балл ≥ 70): {high_risk}\n")
+        self.summary_text.append(f"Файлы с высоким риском (балл >= 70): {high_risk}\n")
         self.summary_text.append(f"Использованные типы проверок: {', '.join(self.last_scan.get('check_types', []))}")
 
         self.results_table.setRowCount(len(scores))
@@ -660,8 +739,24 @@ class CodeScannerGUI(QMainWindow):
         self.generate_interaction_graph(self.last_scan.get("results", {}), [(f, '') for f in self.last_scan.get("files", [])])
         self.io_net_button.setEnabled(True)
 
+    def _add_finding_to_table(self, finding: str, check_type: str):
+        # Парсим строку находки
+        match = re.match(r"(?:Line (\d+|-): )?(.*?) \[Type: .*\] \[Reason: (.*?)\] \[Advice: (.*?)\]", finding)
+        if not match:
+            return
+        line_num, snippet, reason, advice = match.groups()
+        line_num = line_num if line_num != '-' else 'N/A'
+        snippet = snippet.strip() if snippet else 'N/A'
+        
+        row = self.details_table.rowCount()
+        self.details_table.insertRow(row)
+        self.details_table.setItem(row, 0, QTableWidgetItem(line_num))
+        self.details_table.setItem(row, 1, QTableWidgetItem(check_type))
+        self.details_table.setItem(row, 2, QTableWidgetItem(snippet))
+        self.details_table.setItem(row, 3, QTableWidgetItem(reason))
+        self.details_table.setItem(row, 4, QTableWidgetItem(advice))
+
     def update_details(self):
-        self.details_table.setRowCount(0)
         filename = self.file_combo.currentText()
         if not filename or not self.last_scan:
             return
@@ -669,36 +764,33 @@ class CodeScannerGUI(QMainWindow):
         results = self.last_scan.get("results", {})
         patterns = results.get(filename, {})
         selected_checks = self.last_scan.get("check_types", [])
-        findings = []
-
-        for finding in patterns.get("detailed_findings", []):
-            match = re.match(r"Line (\d+|-): (.*?) \[Type: (.*?)\] \[Reason: (.*?)\] \[Advice: (.*?)\]", finding)
-            if match:
-                line_num, snippet, check_type, reason, advice = match.groups()
-                check_mapping = {
-                    "AST": "ast",
-                    "Regex": "regex",
-                    "YARA": "yara",
-                    "Bandit": "bandit"
-                }
-                check_key = check_mapping.get(check_type)
-                if check_key in selected_checks:
-                    findings.append((line_num, check_type, snippet, reason, advice))
-
-        if "heuristics" in selected_checks:
-            for finding in patterns.get("detailed_lines", []):
-                match = re.match(r"Line (\d+): (.*?) \[Причина: (.*?)\] \[Совет: (.*?)\]", finding)
-                if match:
-                    line_num, snippet, reason, advice = match.groups()
-                    findings.append((line_num, "Heuristics", snippet, reason, advice))
-
-        self.details_table.setRowCount(len(findings))
-        for row, (line_num, check_type, snippet, reason, advice) in enumerate(findings):
-            self.details_table.setItem(row, 0, QTableWidgetItem(line_num))
-            self.details_table.setItem(row, 1, QTableWidgetItem(check_type))
-            self.details_table.setItem(row, 2, QTableWidgetItem(snippet))
-            self.details_table.setItem(row, 3, QTableWidgetItem(reason))
-            self.details_table.setItem(row, 4, QTableWidgetItem(advice))
+    
+        self.details_table.setRowCount(0)
+        seen_findings = set()  # Для уникальности записей по строке и типу
+    
+        # Только выбранные типы проверок
+        if 'regex' in selected_checks and '_checks' in patterns and 'regex' in patterns['_checks']:
+            for finding in patterns['_checks']['regex'].get('detailed_findings', []):
+                key = (re.search(r"Line (\d+|-):", finding).group(0) if re.search(r"Line (\d+|-):", finding) else 'N/A', 'Regex')
+                if key not in seen_findings:
+                    self._add_finding_to_table(finding, 'Regex')
+                    seen_findings.add(key)
+    
+        if 'ast' in selected_checks and '_checks' in patterns and 'ast' in patterns['_checks']:
+            for finding in patterns['_checks']['ast'].get('detailed_findings', []):
+                key = (re.search(r"Line (\d+|-):", finding).group(0) if re.search(r"Line (\d+|-):", finding) else 'N/A', 'AST')
+                if key not in seen_findings:
+                    self._add_finding_to_table(finding, 'AST')
+                    seen_findings.add(key)
+    
+        # Эвристики только если есть комбинации
+        if 'heuristics' in selected_checks:
+            for line in patterns.get('detailed_lines', []):
+                if re.search(r"\[Type: Heuristics\]", line):
+                    key = (re.search(r"Line (\d+|-):", line).group(0) if re.search(r"Line (\d+|-):", line) else 'N/A', 'Heuristics')
+                    if key not in seen_findings:
+                        self._add_finding_to_table(line, 'Heuristics')
+                        seen_findings.add(key)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
